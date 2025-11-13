@@ -1,0 +1,993 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+if not Rayfield then return end
+
+local localPlayer = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- Animation IDs
+local BLOCK_ANIMATIONS = {
+    NORMAL = {
+        Delay = 0.2, Hold = 0.7,
+        IDs = {
+            ["rbxassetid://4095625816"] = true, -- normal
+            ["rbxassetid://4096014941"] = true, -- normal
+            ["rbxassetid://6216059085"] = true, -- madeinheaven
+            ["rbxassetid://6216052429"] = true, -- madeinheaven
+            ["rbxassetid://6049426097"] = true, -- whitesnake
+            ["rbxassetid://5227558947"] = true, -- whitesnake
+            ["rbxassetid://7250792726"] = true, -- crazydiamondBD
+            ["rbxassetid://10443024044"] = true, -- pluckskill
+            ["rbxassetid://10444683732"] = true, -- pluckskill
+            ["rbxassetid://10443019808"] = true, -- pluckskill
+            ["rbxassetid://10726618791"] = true, -- crazydiam
+            ["rbxassetid://10726619267"] = true, -- crazydiam
+            ["rbxassetid://10726619714"] = true, -- crazydiam
+            ["rbxassetid://12472188145"] = true, -- iceman
+            ["rbxassetid://12472187035"] = true, -- iceman
+            ["rbxassetid://12472184729"] = true, -- iceman
+            ["rbxassetid://12472183894"] = true, -- iceman
+            ["rbxassetid://6701277902"] = true, -- anubis
+            ["rbxassetid://6704817082"] = true, -- anubis
+            ["rbxassetid://74382652219174"] = true, -- joseph
+            ["rbxassetid://6780938176"] = true, -- rhcp
+            ["rbxassetid://15627021093"] = true, -- stickyfinger
+            ["rbxassetid://4812642386"] = true, -- starplatinum
+            ["rbxassetid://6835249882"] = true, -- silverchariot
+            ["rbxassetid://6835261066"] = true, -- silverchariot
+            ["rbxassetid://98740926401939"] = true, -- stw
+            ["rbxassetid://101069786143553"] = true, -- stw
+            ["rbxassetid://4497027865"] = true, -- cream
+            ["rbxassetid://5303792071"] = true, -- tusk
+            ["rbxassetid://11835662089"] = true, -- spin
+            ["rbxassetid://12293318922"] = true,  -- softwetgobeyond
+            ["rbxassetid://6105486059"] = true --twoh
+        }
+    },
+    INSTANT_LONG = {
+        Delay = 0, Hold = 0.15, -- M1 Hold
+        IDs = {
+            ["rbxassetid://4095589649"] = true, -- instant
+            ["rbxassetid://4095591763"] = true, -- instant
+            ["rbxassetid://4095590714"] = true, -- instant
+            ["rbxassetid://4095592767"] = true, -- instant
+            ["rbxassetid://4095593647"] = true, -- instant
+            ["rbxassetid://6216078473"] = true, -- madeinheaven
+            ["rbxassetid://6216079365"] = true, -- madeinheaven
+            ["rbxassetid://6216079832"] = true, -- madeinheaven
+            ["rbxassetid://6696140087"] = true, -- anubis
+            ["rbxassetid://6696140608"] = true, -- anubis
+            ["rbxassetid://6704817374"] = true, -- anubis
+            ["rbxassetid://6696144795"] = true, -- anubis
+            ["rbxassetid://6696145049"] = true, -- anubis
+            ["rbxassetid://6835251541"] = true, -- silverchariot
+            ["rbxassetid://6835253731"] = true, -- silverchariot
+            ["rbxassetid://6835255763"] = true, -- silverchariot
+            ["rbxassetid://6835257748"] = true, -- silverchariot
+            ["rbxassetid://6835259549"] = true, -- silverchariot
+            ["rbxassetid://75371369107568"] = true, -- stw
+            ["rbxassetid://101280088140644"] = true, -- stw
+            ["rbxassetid://73270030493694"] = true, -- stw
+            ["rbxassetid://98303744043695"] = true, -- stw
+            ["rbxassetid://81502810063424"] = true, -- stw
+            ["rbxassetid://4211798914"] = true, -- instant
+            ["rbxassetid://4211799970"] = true, -- instant
+            ["rbxassetid://4211801059"] = true, -- instant
+            ["rbxassetid://4211801897"] = true, -- instant
+            ["rbxassetid://4211802698"] = true  -- instant
+        }
+    },
+    INSTANT_LONG_NEW = {
+        Delay = 0, Hold = 1.2, -- Instant Block
+        IDs = {
+            ["rbxassetid://5248107852"] = true, -- madeinheaven
+            ["rbxassetid://6216058630"] = true, -- madeinheaven
+            ["rbxassetid://5248128116"] = true, -- madeinheaven
+            ["rbxassetid://6277192242"] = true, -- madeinheaven
+            ["rbxassetid://6869896659"] = true, -- magicRed
+            ["rbxassetid://6869895377"] = true, -- magicRed
+            ["rbxassetid://6869897553"] = true, -- magicRed
+            ["rbxassetid://4628344892"] = true, -- aerosmith
+            ["rbxassetid://5793968491"] = true, -- whitesnake
+            ["rbxassetid://12733018380"] = true, -- vamp
+            ["rbxassetid://12733022476"] = true, -- vamp
+            ["rbxassetid://12733016318"] = true, -- vamp
+            ["rbxassetid://10443021814"] = true, -- pluckskill
+            ["rbxassetid://11835659609"] = true, -- joseph
+            ["rbxassetid://1180931117149"] = true, -- joseph
+            ["rbxassetid://1140451768001"] = true, -- joseph
+            ["rbxassetid://6780928238"] = true, -- rhcp
+            ["rbxassetid://6780937804"] = true, -- rhcp
+            ["rbxassetid://15573643799"] = true, -- stickyfinger
+            ["rbxassetid://15573646670"] = true, -- stickyfinger
+            ["rbxassetid://14174878575"] = true, -- stickyfinger
+            ["rbxassetid://6455260236"] = true, -- sixpistol
+            ["rbxassetid://4073802828"] = true, -- sixpistol
+            ["rbxassetid://6455259861"] = true, -- sixpistol
+            ["rbxassetid://4139919881"] = true, -- starplatinum
+            ["rbxassetid://6836280504"] = true, -- silverchariot
+            ["rbxassetid://4608512208"] = true, -- silverchariot
+            ["rbxassetid://4595562165"] = true, -- silverchariot
+            ["rbxassetid://83378529435767"] = true, -- stw
+            ["rbxassetid://124500775323666"] = true, -- stw
+            ["rbxassetid://5303792071"] = true, -- tusk
+            ["rbxassetid://11835661536"] = true, -- spin
+            ["rbxassetid://11835659609"] = true, -- spin
+            ["rbxassetid://11835655817"] = true, -- spin
+            ["rbxassetid://11886825775"] = true, -- other
+            ["rbxassetid://70798054405137"] = true, -- theworld
+            ["rbxassetid://12293318922"] = true, -- softwetgobeyond
+            ["rbxassetid://12292886724"] = true, -- softwetgobeyond
+            ["rbxassetid://12292668429"] = true, -- softwetgobeyond
+            ["rbxassetid://4691787301"] = true, --hermitpurple
+            ["rbxassetid://6651725175"] = true, --hermitpurple
+            ["rbxassetid://12020102983"] = true, --zepeli
+            ["rbxassetid://140176415013134"] = true, --zepeli
+            ["rbxassetid://12020151604"] = true  --zepeli
+        }
+    },
+    LATE_REACT = {
+        Delay = 0.3, Hold = 0.6, -- Boxing PB
+        IDs = {
+            ["rbxassetid://11886832410"] = true, -- boxingpb
+            ["rbxassetid://11886827025"] = true, -- boxingpb
+        }
+    },
+    SUPER_LONG = {
+        Delay = 0, Hold = 2.5,
+        IDs = {
+            ["rbxassetid://5227552992"] = true, -- theworld
+            ["rbxassetid://6048575522"] = true, -- starplatinum
+        }
+    },
+}
+
+local AUTO_BARRAGE_ANIMATION_IDS = {
+    ["rbxassetid://11154840409"] = true, -- barrage
+    ["rbxassetid://6216053394"] = true, -- madeinheaven
+    ["rbxassetid://5030894377"] = true, -- iceman
+    ["rbxassetid://6455260236"] = true, -- sixpistol
+    ["rbxassetid://6835245845"] = true, -- silverchariot
+}
+
+local AUTO_BREAK_BLOCK_ANIMATION_IDS = {
+    ["rbxassetid://4263928734"] = true, -- breakblock
+}
+
+local AUTO_BLOCK_RADIUS = 40
+local M1_BLOCK_RADIUS = 20
+
+local isAutoBlockActive = false
+local isBlockM1sActive = true
+local isAutoBarrageActive = false
+local isAutoBreakBlockActive = false
+local isTPBreakActive = false
+local isPetESPActive = false
+local isStyleESPActive = false
+local debugMode = false
+local isAimingActive = false
+local isAutoSummonStandActive = false
+local isMobileButtonActive = false
+local isCounterHitM1Active = false
+local isAutoSprintActive = false
+local isAutoSellActive = false
+
+local trackedPets = {}
+local trackedStyles = {}
+local activeTweens = {}
+local playerAnimConnections = {}
+local standAnimConnections = {}
+local playerAllConnections = {}
+
+local currentlyTrackedPlayers = {}
+local isBlockingCurrently = false
+
+-- Auto Sell variables
+local sellableItems = {
+    "Mysterious Arrow",
+    "Rokakaka",
+    "Ancient Scroll",
+    "Diamond",
+    "Gold Coin",
+    "Stone Mask",
+    "Steel Ball",
+    "Dio's Diary",
+    "Quinton's Glove",
+    "Zepeli's Headband",
+    "Rib Cage of The Saint's Corpse",
+    "Zepeli's Hat",
+    "Pure Rokakaka"
+}
+local selectedSellItems = {}
+local sellItemDropdown = nil
+
+
+local function debugPrint(message) if debugMode then print("[DEBUG] " .. tostring(message)) end end
+local function showNotification(title, content, icon, duration) Rayfield:Notify({Title = title, Content = content, Icon = icon, Duration = duration}) end
+
+local function toggleBlocking(action)
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("RemoteEvent") then
+        char.RemoteEvent:FireServer(action)
+        debugPrint("FireServer '" .. action .. "'")
+    end
+end
+
+local function fireStandBarrage()
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("RemoteEvent") then
+        char.RemoteEvent:FireServer(unpack({"MobileSkillInputBegan", "Stand Barrage"}))
+        debugPrint("FireServer 'Stand Barrage'")
+    end
+end
+
+local function doM1Attack()
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("RemoteEvent") then
+        local args = {
+            "Attack",
+            "m1"
+        }
+        char.RemoteEvent:FireServer(unpack(args))
+        debugPrint("FireServer 'Attack m1'")
+    end
+end
+
+local function startSprinting()
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("RemoteEvent") then
+        local args = {
+            "StartSprinting"
+        }
+        char.RemoteEvent:FireServer(unpack(args))
+        debugPrint("FireServer 'StartSprinting'")
+    end
+end
+
+local function autoSprintLoop()
+    while isAutoSprintActive do
+        startSprinting()
+        task.wait(0.1)
+    end
+end
+
+local function breakBlock(targetCharacter)
+    local char = localPlayer.Character
+    if not char or not char:FindFirstChild("RemoteEvent") then return end
+
+    char.RemoteEvent:FireServer(unpack({"Attack", "m2"}))
+    debugPrint("FireServer 'Attack m2' (Break Block) - Pre-TP")
+
+    if isTPBreakActive and targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart") then
+        local myHRP = char:FindFirstChild("HumanoidRootPart")
+        local targetHRP = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if myHRP and targetHRP then
+            myHRP.CFrame = CFrame.new(targetHRP.Position + (myHRP.CFrame.LookVector * 5))
+            showNotification("TP Break", "Teleported to " .. targetCharacter.Name .. " and performing m2 attack!", nil, 3)
+            task.wait(0.05)
+        end
+    end
+
+    char.RemoteEvent:FireServer(unpack({"Attack", "m2"}))
+    debugPrint("FireServer 'Attack m2' (Break Block) - Post-TP")
+
+    if isTPBreakActive and isAimingActive then
+        isAimingActive = false
+        stopAimLoop()
+    end
+end
+
+local function summonStand()
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("RemoteEvent") then
+        char.RemoteEvent:FireServer(unpack({"ToggleStand", true}))
+        debugPrint("FireServer 'ToggleStand' (summon)")
+    end
+end
+
+local function autoSummonStandLoop()
+    while isAutoSummonStandActive do
+        local playerModel = Workspace:FindFirstChild("Living") and Workspace.Living:FindFirstChild(localPlayer.Name)
+        local summonedStandValue = playerModel and playerModel:FindFirstChild("SummonedStand")
+        if summonedStandValue and not summonedStandValue.Value then summonStand() end
+        task.wait(0.1)
+    end
+end
+
+local function autoSellLoop()
+    local character = localPlayer.Character
+    local backpack = localPlayer:FindFirstChild("Backpack")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if not backpack or not humanoid then return end
+
+    while isAutoSellActive do
+        local foundItemToSell = false
+        for _, itemName in ipairs(selectedSellItems) do
+            local itemToSell = backpack:FindFirstChild(itemName)
+
+            if itemToSell and itemToSell:IsA("Tool") then
+                if itemToSell.Parent ~= character then
+                    humanoid:EquipTool(itemToSell)
+                    showNotification("Auto Sell", "Equipping " .. itemName .. "...", nil, 1)
+                    task.wait(0.5)
+                end
+
+                if itemToSell.Parent == character then
+                    local charRemoteEvent = character:FindFirstChild("RemoteEvent")
+                    if charRemoteEvent then
+                        local args = {
+                            "EndDialogue",
+                            {
+                                Option = "Option2",
+                                Dialogue = "Dialogue5",
+                                NPC = "Merchant"
+                            }
+                        }
+                        charRemoteEvent:FireServer(unpack(args))
+                        showNotification("Auto Sell", "Attempting to sell " .. itemName .. "...", nil, 1)
+                        task.wait(1)
+                        foundItemToSell = true
+                        break
+                    else
+                        showNotification("Auto Sell", "RemoteEvent not found for selling.", nil, 2)
+                    end
+                else
+                    warn("Failed to equip tool: " .. itemName)
+                end
+            end
+        end
+        if not foundItemToSell then
+            showNotification("Auto Sell", "No selected items found in inventory to sell. Waiting...", nil, 1)
+            task.wait(2)
+        else
+            task.wait(1)
+        end
+    end
+end
+
+local function handleAttackAnimation(animationTrack, attackerPlayer, attackerModel)
+    if not currentlyTrackedPlayers[attackerPlayer] then return end
+    if (not isAutoBlockActive and not isAutoBarrageActive and not isAutoBreakBlockActive and not isCounterHitM1Active) or not animationTrack or not animationTrack.Animation or attackerPlayer == localPlayer or not attackerModel or not attackerModel.Parent then return end
+
+    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local attackerRoot = attackerPlayer.Character and attackerPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not attackerRoot then return end
+
+    local distanceSq = (myRoot.Position - attackerRoot.Position).Magnitude^2
+    local animationId = animationTrack.Animation.AnimationId
+    local isStandAttack = (attackerModel.Name == "StandMorph" or attackerModel:FindFirstChild("StandName"))
+
+    debugPrint("Detected animation from " .. attackerPlayer.Name .. ": " .. (isStandAttack and "Player's stand attacks!" or attackerModel.Name .. " is attacking!") .. " (Anim ID: " .. animationId .. ")")
+
+    local blockDuration, activationDelay, actionType, isM1Attack = nil, nil, "none", false
+
+    if AUTO_BARRAGE_ANIMATION_IDS[animationId] then
+        actionType = "barrage"
+    elseif AUTO_BREAK_BLOCK_ANIMATION_IDS[animationId] then
+        actionType = "breakBlock"
+    elseif BLOCK_ANIMATIONS.INSTANT_LONG.IDs[animationId] then
+        actionType, isM1Attack = "block", true
+        blockDuration, activationDelay = BLOCK_ANIMATIONS.INSTANT_LONG.Hold, BLOCK_ANIMATIONS.INSTANT_LONG.Delay
+    elseif BLOCK_ANIMATIONS.INSTANT_LONG_NEW.IDs[animationId] then
+        actionType, blockDuration, activationDelay = "block", BLOCK_ANIMATIONS.INSTANT_LONG_NEW.Hold, BLOCK_ANIMATIONS.INSTANT_LONG_NEW.Delay
+    elseif BLOCK_ANIMATIONS.LATE_REACT.IDs[animationId] then
+        actionType, blockDuration, activationDelay = "block", BLOCK_ANIMATIONS.LATE_REACT.Hold, BLOCK_ANIMATIONS.LATE_REACT.Delay
+    elseif BLOCK_ANIMATIONS.SUPER_LONG.IDs[animationId] then
+        actionType, blockDuration, activationDelay = "block", BLOCK_ANIMATIONS.SUPER_LONG.Hold, BLOCK_ANIMATIONS.SUPER_LONG.Delay
+    elseif BLOCK_ANIMATIONS.NORMAL.IDs[animationId] then
+        actionType, blockDuration, activationDelay = "block", BLOCK_ANIMATIONS.NORMAL.Hold, BLOCK_ANIMATIONS.NORMAL.Delay
+    else
+        return
+    end
+
+    local autoBlockRadiusSq = AUTO_BLOCK_RADIUS * AUTO_BLOCK_RADIUS
+    local m1BlockRadiusSq = M1_BLOCK_RADIUS * M1_BLOCK_RADIUS
+
+    if actionType == "block" then
+        if not isAutoBlockActive or isBlockingCurrently then return end
+        if isM1Attack then
+            if not isBlockM1sActive or distanceSq > m1BlockRadiusSq then return end
+        elseif distanceSq > autoBlockRadiusSq then
+            return
+        end
+    elseif actionType == "barrage" then
+        if not isAutoBarrageActive or distanceSq > autoBlockRadiusSq then return end
+    elseif actionType == "breakBlock" then
+        if not isAutoBreakBlockActive or distanceSq > autoBlockRadiusSq then return end
+    elseif actionType == "none" then
+        return
+    end
+
+    if debugMode then
+        showNotification("Detected", attackerPlayer.Name .. (isStandAttack and "'s Stand is " or " is ") .. actionType .. "ing! (Anim ID: " .. animationId .. ")", "rbxassetid://6027908860", 2)
+    end
+
+    if actionType == "block" then
+        isBlockingCurrently = true
+        debugPrint("Blocking immediately due to detected animation.")
+        local function performBlock()
+            toggleBlocking("StartBlocking")
+            task.delay(blockDuration, function()
+                toggleBlocking("StopBlocking")
+                isBlockingCurrently = false
+                if isCounterHitM1Active and isM1Attack then -- Check for new counter hit M1 feature
+                    task.wait(0.1) -- Small delay before counter-attacking
+                    doM1Attack()
+                    showNotification("Counter Hit M1", "Performed M1 counter hit!", nil, 2)
+                end
+            end)
+        end
+        if activationDelay == 0 then performBlock() else task.delay(activationDelay, performBlock) end
+    elseif actionType == "barrage" then
+        debugPrint("Firing Barrage.")
+        fireStandBarrage()
+    elseif actionType == "breakBlock" then
+        debugPrint("Breaking Block.")
+        breakBlock(attackerPlayer.Character)
+    end
+end
+
+local function disconnectAnimatorTracking(player, isStand)
+    local connectionsTable = isStand and standAnimConnections or playerAnimConnections
+    if connectionsTable[player] then
+        for _, conn in ipairs(connectionsTable[player]) do conn:Disconnect() end
+        connectionsTable[player] = nil
+    end
+end
+
+local function connectAnimatorTracking(animator, player, model, isStand)
+    local connectionsTable = isStand and standAnimConnections or playerAnimConnections
+    if not connectionsTable[player] then connectionsTable[player] = {} end
+
+    local connection = animator.AnimationPlayed:Connect(function(animationTrack)
+        handleAttackAnimation(animationTrack, player, model)
+    end)
+    table.insert(connectionsTable[player], connection)
+end
+
+local function addPlayerAnimationTracking(player)
+    local char = player.Character
+    if not char then return end
+
+    disconnectAnimatorTracking(player, false)
+    disconnectAnimatorTracking(player, true)
+
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid:FindFirstChild("Animator") then
+        connectAnimatorTracking(humanoid.Animator, player, char, false)
+    end
+
+    for _, d in ipairs(char:GetDescendants()) do
+        if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+            local animator = d:FindFirstChild("AnimationController") and d.AnimationController:FindFirstChildOfClass("Animator") or d:FindFirstChildOfClass("Animator")
+            if animator then connectAnimatorTracking(animator, player, d, true) end
+        end
+    end
+end
+
+local function removePlayerAnimationTracking(player)
+    disconnectAnimatorTracking(player, false)
+    disconnectAnimatorTracking(player, true)
+end
+
+local function addPet(petModel, owner)
+    if trackedPets[petModel] or owner == localPlayer or not petModel or not petModel.Parent then return end
+
+    local data = {owner=owner}
+    if isPetESPActive then
+        local esp = Instance.new("BillboardGui", petModel)
+        esp.Name = "PetESP"; esp.AlwaysOnTop = true; esp.Size = UDim2.new(0,150,0,50); esp.Adornee = petModel:FindFirstChild("Head") or petModel:FindFirstChildOfClass("BasePart")
+        local textLabel = Instance.new("TextLabel", esp); textLabel.Size = UDim2.new(1,0,1,0); textLabel.BackgroundTransparency=1; textLabel.TextColor3=Color3.fromRGB(0,255,255); textLabel.Font=Enum.Font.SourceSansBold
+        local success, standNameValue = pcall(function() return petModel:WaitForChild("Stand Name", 5) end)
+        local petDisplayName = (success and standNameValue and standNameValue:IsA("StringValue")) and standNameValue.Value or petModel.Name
+        if not (success and standNameValue and standNameValue:IsA("StringValue")) then warn("Stand ESP: Could not find 'Stand Name' StringValue for pet " .. petModel.Name .. ". Using model name instead.") end
+        textLabel.Text = petDisplayName .. "\n(" .. owner.Name .. "'s Stand)"; data.esp = esp
+    end
+    trackedPets[petModel] = data
+
+    if currentlyTrackedPlayers[owner] and (isAutoBlockActive or isAutoBarrageActive or isAutoBreakBlockActive) then
+        local animator = petModel:FindFirstChild("AnimationController") and petModel.AnimationController:FindFirstChildOfClass("Animator") or petModel:FindFirstChildOfClass("Animator")
+        if animator then connectAnimatorTracking(animator, owner, petModel, true) end
+    end
+end
+
+local function removePet(petModel)
+    if not trackedPets[petModel] then return end
+    local data = trackedPets[petModel]
+
+    if data.esp then data.esp:Destroy() end
+
+    if data.owner then
+        disconnectAnimatorTracking(data.owner, true)
+    end
+
+    trackedPets[petModel] = nil
+end
+
+local function updatePetESPState()
+    for petModel, data in pairs(trackedPets) do
+        if data.esp then data.esp:Destroy() end
+    end
+    trackedPets = {}
+
+    if not isPetESPActive then return end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            for _, d in ipairs(player.Character:GetDescendants()) do
+                if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+                    addPet(d, player)
+                end
+            end
+        end
+    end
+end
+
+local function addStyleESP(player)
+    if trackedStyles[player] or player == localPlayer or not player.Character then return end
+
+    local char = player.Character
+    local playerStats = player:FindFirstChild("PlayerStats")
+    local specValue = playerStats and playerStats:FindFirstChild("Spec")
+
+    if not specValue or specValue.Value == "None" then return end
+
+    local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    local esp = Instance.new("BillboardGui", char)
+    esp.Name = "StyleESP"; esp.AlwaysOnTop = true; esp.Size = UDim2.new(0,150,0,50); esp.Adornee = humanoidRootPart
+    esp.ExtentsOffset = Vector3.new(0, 3, 0)
+
+    local textLabel = Instance.new("TextLabel", esp)
+    textLabel.Size = UDim2.new(1,0,1,0); textLabel.BackgroundTransparency=1; textLabel.TextColor3=Color3.fromRGB(255,255,0); textLabel.Font=Enum.Font.SourceSansBold; textLabel.TextSize = 14
+    textLabel.Text = "Style: " .. specValue.Value
+
+    trackedStyles[player] = {esp = esp, connection = nil}
+
+    local connection = specValue.Changed:Connect(function(newValue)
+        if trackedStyles[player] and trackedStyles[player].esp and trackedStyles[player].esp.Parent and trackedStyles[player].esp:FindFirstChildOfClass("TextLabel") then
+            if newValue ~= "None" then
+                trackedStyles[player].esp:FindFirstChildOfClass("TextLabel").Text = "Style: " .. newValue
+            else
+                removeStyleESP(player)
+            end
+        else
+            if trackedStyles[player] and trackedStyles[player].connection then
+                trackedStyles[player].connection:Disconnect()
+                trackedStyles[player].connection = nil
+            end
+        end
+    end)
+    trackedStyles[player].connection = connection
+end
+
+local function removeStyleESP(player)
+    if trackedStyles[player] then
+        if trackedStyles[player].esp then trackedStyles[player].esp:Destroy() end
+        if trackedStyles[player].connection then trackedStyles[player].connection:Disconnect() end
+        trackedStyles[player] = nil
+    end
+end
+
+local function updateStyleESPState()
+    for player, data in pairs(trackedStyles) do
+        removeStyleESP(player)
+    end
+    trackedStyles = {}
+
+    if not isStyleESPActive then return end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            addStyleESP(player)
+        end
+    end
+end
+
+local function setupPlayer(player)
+    if playerAllConnections[player] then
+        for _, conn in ipairs(playerAllConnections[player]) do
+            if conn and conn.Connected then conn:Disconnect() end
+        end
+    end
+    playerAllConnections[player] = {}
+
+    local function onCharacterAdded(char)
+        if player ~= localPlayer then
+            if currentlyTrackedPlayers[player] then
+                addPlayerAnimationTracking(player)
+                for _, d in ipairs(char:GetDescendants()) do
+                    if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+                        addPet(d, player)
+                    end
+                end
+            end
+
+            local charDescendantAddedConn = char.DescendantAdded:Connect(function(d)
+                if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+                    addPet(d, player)
+                end
+            end)
+            local charDescendantRemovingConn = char.DescendantRemoving:Connect(function(d)
+                if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+                    removePet(d)
+                end
+            end)
+
+            table.insert(playerAllConnections[player], charDescendantAddedConn)
+            table.insert(playerAllConnections[player], charDescendantRemovingConn)
+
+            updateStyleESPState()
+        end
+    end
+
+    local playerCharacterAddedConn = player.CharacterAdded:Connect(onCharacterAdded)
+    table.insert(playerAllConnections[player], playerCharacterAddedConn)
+
+    if player.Character then onCharacterAdded(player.Character) end
+end
+
+local function cleanupPlayer(player)
+    if playerAllConnections[player] then
+        for _, conn in ipairs(playerAllConnections[player]) do
+            if conn and conn.Connected then conn:Disconnect() end
+        end
+    end
+    playerAllConnections[player] = nil
+
+    removePlayerAnimationTracking(player)
+
+    for petModel, data in pairs(trackedPets) do
+        if data and data.owner == player then
+            removePet(petModel)
+        end
+    end
+
+    removeStyleESP(player)
+    currentlyTrackedPlayers[player] = nil
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+Players.PlayerRemoving:Connect(cleanupPlayer)
+
+for _, player in ipairs(Players:GetPlayers()) do setupPlayer(player) end
+
+local currentAimTarget, aimLoop, FOV_RADIUS, PREDICTION_TIME = nil, nil, 100, 0.5
+local function findNearestEnemy()
+    local myRoot = localPlayer.Character and localPlayer.Character.HumanoidRootPart;
+    if not myRoot then return nil end;
+    local nearest, minDistSq = nil, FOV_RADIUS * FOV_RADIUS;
+    for _,p in ipairs(Players:GetPlayers()) do
+        local pChar = p.Character
+        if p ~= localPlayer and pChar and pChar.HumanoidRootPart and pChar:FindFirstChildOfClass("Humanoid") and pChar.Humanoid.Health > 0 then
+            local distSq = (pChar.HumanoidRootPart.Position - myRoot.Position).Magnitude^2;
+            if distSq < minDistSq then minDistSq, nearest = distSq, pChar end;
+        end;
+    end;
+    return nearest;
+end
+
+local function stopAimLoop()
+    if aimLoop then aimLoop:Disconnect(); aimLoop = nil; currentAimTarget = nil end
+end
+
+local function startAimLoop()
+    if aimLoop or not currentAimTarget then return end;
+    aimLoop = RunService.RenderStepped:Connect(function()
+        if not isAimingActive or not currentAimTarget or not currentAimTarget.Parent or not localPlayer.Character or not localPlayer.Character.HumanoidRootPart or not currentAimTarget:FindFirstChild("HumanoidRootPart") then
+            isAimingActive = false; stopAimLoop(); return;
+        end;
+        local hrp = localPlayer.Character.HumanoidRootPart;
+        local targetHrp = currentAimTarget.HumanoidRootPart;
+        local predPos = targetHrp.Position + (targetHrp.AssemblyLinearVelocity * PREDICTION_TIME);
+        hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(predPos.X, hrp.Position.Y, predPos.Z));
+    end);
+end
+
+local Window = Rayfield:CreateWindow({
+    Name = "Script",
+    LoadingTitle = "Loading...",
+    KeySystem = false,
+    Theme = "AmberGlow"
+})
+
+local CombatTab = Window:CreateTab("Combat")
+CombatTab:CreateToggle({Name = "Toggle Auto-Block", CurrentValue = isAutoBlockActive, Callback = function(v) isAutoBlockActive = v; showNotification("Auto-Block", "Auto-Block is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+CombatTab:CreateToggle({Name = "Block M1s (M1 Hold)", CurrentValue = isBlockM1sActive, Callback = function(v) isBlockM1sActive = v; showNotification("Block M1s", "Blocking for 'M1 Hold' is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+CombatTab:CreateSlider({Name = "M1 Block Radius", Range = {0, 50}, Increment = 5, CurrentValue = M1_BLOCK_RADIUS, Callback = function(v) M1_BLOCK_RADIUS = v; if debugMode then showNotification("Setting Changed", "M1 Block Radius set to " .. math.floor(v), nil, 2) end end})
+CombatTab:CreateToggle({Name = "Counter Hit after M1 Block", CurrentValue = isCounterHitM1Active, Callback = function(v) isCounterHitM1Active = v; showNotification("Counter Hit M1", "Counter Hit after M1 Block is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+
+CombatTab:CreateToggle({Name = "Toggle Auto Barrage", CurrentValue = isAutoBarrageActive, Callback = function(v) isAutoBarrageActive = v; showNotification("Auto Barrage", "Auto Barrage is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+CombatTab:CreateToggle({Name = "Toggle Auto Break Block", CurrentValue = isAutoBreakBlockActive, Callback = function(v) isAutoBreakBlockActive = v; showNotification("Auto Break Block", "Auto Break Block is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+CombatTab:CreateToggle({Name = "TP Break", CurrentValue = isTPBreakActive, Callback = function(v) isTPBreakActive = v; showNotification("TP Break", "TP Break is " .. (v and "ON" or "OFF") .. ".", nil, 3) end})
+CombatTab:CreateSlider({Name = "General Block Radius", Range = {0, 50}, Increment = 5, CurrentValue = AUTO_BLOCK_RADIUS, Callback = function(v) AUTO_BLOCK_RADIUS = v; if debugMode then showNotification("Setting Changed", "General Radius set to " .. math.floor(v), nil, 2) end end})
+
+CombatTab:CreateToggle({Name = "Stand ESP", CurrentValue = isPetESPActive, Callback = function(v) isPetESPActive = v; updatePetESPState(); showNotification("Stand ESP", "Stand ESP is " .. (v and "ON" or "OFF"), nil, 2) end})
+CombatTab:CreateToggle({Name = "Style ESP", CurrentValue = isStyleESPActive, Callback = function(v) isStyleESPActive = v; updateStyleESPState(); showNotification("Style ESP", "Style ESP is " .. (v and "ON" or "OFF"), nil, 2) end})
+
+local mobileAimButton, mobileScreenGui = nil, nil
+local function updateMobileAimButtonText()
+    if mobileAimButton then
+        mobileAimButton.Text = "Auto-Aim: " .. (isAimingActive and "ON" or "OFF")
+        mobileAimButton.BackgroundColor3 = isAimingActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    end
+end
+
+local function updateAimingState()
+    if isAimingActive then
+        currentAimTarget = findNearestEnemy();
+        if currentAimTarget then
+            startAimLoop();
+            showNotification("Auto-Aim", "Target: " .. currentAimTarget.Name, nil, 3);
+        else
+            isAimingActive = false;
+            stopAimLoop();
+            showNotification("Auto-Aim", "No targets in range.", nil, 3);
+        end
+    else
+        stopAimLoop()
+    end
+    if mobileAimButton then updateMobileAimButtonText() end
+end
+
+CombatTab:CreateToggle({
+    Name = "Toggle Auto-Aim",
+    CurrentValue = isAimingActive,
+    Callback = function(v)
+        isAimingActive = v;
+        updateAimingState();
+    end
+})
+CombatTab:CreateSlider({Name = "Prediction", Range = {0, 1}, Increment = 0.05, CurrentValue = PREDICTION_TIME, Callback = function(v) PREDICTION_TIME = v end})
+CombatTab:CreateSlider({Name = "FOV Radius", Range = {0, 500}, Increment = 10, CurrentValue = FOV_RADIUS, Callback = function(v) FOV_RADIUS = v end})
+
+
+-- Новая вкладка для Auto Sell
+local AutoSellTab = Window:CreateTab("Auto Sell")
+
+sellItemDropdown = AutoSellTab:CreateDropdown({
+    Name = "Select Items to Sell",
+    Options = sellableItems,
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "SellItemDropdown",
+    Callback = function(chosenOptions)
+        selectedSellItems = chosenOptions
+        if #selectedSellItems > 0 then
+            showNotification("Auto Sell", "Selected items for selling: " .. table.concat(selectedSellItems, ", "), nil, 2)
+        else
+            showNotification("Auto Sell", "No items selected for selling.", nil, 3)
+        end
+    end
+})
+
+AutoSellTab:CreateToggle({
+    Name = "Enable Auto Sell",
+    CurrentValue = isAutoSellActive,
+    Callback = function(value)
+        isAutoSellActive = value
+        if isAutoSellActive then
+            task.spawn(autoSellLoop)
+            showNotification("Auto Sell", "Auto Sell is ON.", nil, 3)
+        else
+            showNotification("Auto Sell", "Auto Sell is OFF.", nil, 3)
+        end
+    end,
+})
+
+
+local MiscTab = Window:CreateTab("Misc")
+MiscTab:CreateToggle({
+    Name = "Auto Summon Stand",
+    CurrentValue = isAutoSummonStandActive,
+    Callback = function(value)
+        isAutoSummonStandActive = value
+        if isAutoSummonStandActive then task.spawn(autoSummonStandLoop) showNotification("Auto Summon Stand", "Auto Summon Stand is ON.", nil, 3) else showNotification("Auto Summon Stand", "Auto Summon Stand is OFF.", nil, 3) end
+    end,
+})
+MiscTab:CreateToggle({
+    Name = "Auto Sprint",
+    CurrentValue = isAutoSprintActive,
+    Callback = function(value)
+        isAutoSprintActive = value
+        if isAutoSprintActive then
+            task.spawn(autoSprintLoop)
+            showNotification("Auto Sprint", "Auto Sprint is ON.", nil, 3)
+        else
+            showNotification("Auto Sprint", "Auto Sprint is OFF.", nil, 3)
+        end
+    end,
+})
+
+
+local mobileButtonConnections = {}
+local isDraggingMobileButton = false
+local dragStartPos = Vector2.zero
+local dragOffset = Vector2.zero
+
+local function destroyMobileAimButton()
+    for _, conn in ipairs(mobileButtonConnections) do conn:Disconnect() end
+    table.clear(mobileButtonConnections)
+    if mobileScreenGui then mobileScreenGui:Destroy(); mobileScreenGui = nil end
+    mobileAimButton = nil
+end
+
+local function createMobileAimButton()
+    if not isMobileButtonActive then return end
+    destroyMobileAimButton() -- Clean up previous instances
+
+    mobileScreenGui = Instance.new("ScreenGui"); mobileScreenGui.Name = "MobileAimToggle"; mobileScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+    
+    mobileAimButton = Instance.new("TextButton"); mobileAimButton.Size = UDim2.new(0, 100, 0, 50); mobileAimButton.Position = UDim2.new(0.5, -50, 0.5, -25)
+    mobileAimButton.TextColor3 = Color3.fromRGB(255, 255, 255); mobileAimButton.Font = Enum.Font.SourceSansBold; mobileAimButton.TextSize = 14; mobileAimButton.Parent = mobileScreenGui
+
+    -- Logic for dragging and clicking the button
+    table.insert(mobileButtonConnections, mobileAimButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then
+            isDraggingMobileButton = true
+            dragStartPos = Vector2.new(input.Position.X, input.Position.Y)
+            dragOffset = dragStartPos - Vector2.new(mobileAimButton.AbsolutePosition.X, mobileAimButton.AbsolutePosition.Y)
+            input.Handled = true
+        end
+    end))
+    table.insert(mobileButtonConnections, UserInputService.InputChanged:Connect(function(input)
+        if isDraggingMobileButton and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType.Touch) then
+            local newPositionX = input.Position.X - dragOffset.X
+            local newPositionY = input.Position.Y - dragOffset.Y
+
+            local screenWidth = camera.ViewportSize.X
+            local screenHeight = camera.ViewportSize.Y
+
+            newPositionX = math.max(0, math.min(newPositionX, screenWidth - mobileAimButton.AbsoluteSize.X))
+            newPositionY = math.max(0, math.min(newPositionY, screenHeight - mobileAimButton.AbsoluteSize.Y))
+
+            mobileAimButton.Position = UDim2.new(0, newPositionX, 0, newPositionY)
+        end
+    end))
+    table.insert(mobileButtonConnections, UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType.Touch then
+            if isDraggingMobileButton then
+                isDraggingMobileButton = false
+                local endPos = Vector2.new(input.Position.X, input.Position.Y)
+                local distanceMoved = (endPos - dragStartPos).Magnitude
+
+                if distanceMoved < 10 then -- Treat as click
+                    isAimingActive = not isAimingActive
+                    updateAimingState()
+                end
+            end
+        end
+    end))
+    
+    mobileAimButton.Visible = true
+    updateMobileAimButtonText()
+end
+
+
+MiscTab:CreateToggle({
+    Name = "Mobile Aim Button",
+    CurrentValue = isMobileButtonActive,
+    Callback = function(v)
+        isMobileButtonActive = v
+        if v then
+            createMobileAimButton()
+            showNotification("Mobile UI", "Mobile Aim Button is ON", nil, 2)
+        else
+            destroyMobileAimButton()
+            showNotification("Mobile UI", "Mobile Aim Button is OFF", nil, 2)
+        end
+    end,
+})
+
+local SettingsTab = Window:CreateTab("Settings")
+
+SettingsTab:CreateLabel("Текущая тема: AmberGlow")
+
+SettingsTab:CreateSlider({
+    Name = "Perfect Block Delay",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.NORMAL.Delay,
+    Callback = function(v) BLOCK_ANIMATIONS.NORMAL.Delay = v; showNotification("Setting Changed", "Perfect Block Delay: " .. string.format("%.2f", v), nil, 2) end
+})
+SettingsTab:CreateSlider({
+    Name = "Perfect Block Hold",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.NORMAL.Hold,
+    Callback = function(v) BLOCK_ANIMATIONS.NORMAL.Hold = v; showNotification("Setting Changed", "Perfect Block Hold: " .. string.format("%.2f", v), nil, 2) end
+})
+SettingsTab:CreateSlider({
+    Name = "M1 Hold",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.INSTANT_LONG.Hold,
+    Callback = function(v) BLOCK_ANIMATIONS.INSTANT_LONG.Hold = v; showNotification("Setting Changed", "M1 Hold: " .. string.format("%.2f", v), nil, 2) end
+})
+SettingsTab:CreateSlider({
+    Name = "Instant Block Hold",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.INSTANT_LONG_NEW.Hold,
+    Callback = function(v) BLOCK_ANIMATIONS.INSTANT_LONG_NEW.Hold = v; showNotification("Setting Changed", "Instant Block Hold: " .. string.format("%.2f", v), nil, 2) end
+})
+SettingsTab:CreateSlider({
+    Name = "Boxing PB Delay",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.LATE_REACT.Delay,
+    Callback = function(v) BLOCK_ANIMATIONS.LATE_REACT.Delay = v; showNotification("Setting Changed", "Boxing PB Delay: " .. string.format("%.2f", v), nil, 2) end
+})
+SettingsTab:CreateSlider({
+    Name = "Boxing PB Hold",
+    Range = {0, 1.5},
+    Increment = 0.05,
+    CurrentValue = BLOCK_ANIMATIONS.LATE_REACT.Hold,
+    Callback = function(v) BLOCK_ANIMATIONS.LATE_REACT.Hold = v; showNotification("Setting Changed", "Boxing PB Hold: " .. string.format("%.2f", v), nil, 2) end
+})
+
+local InfoTab = Window:CreateTab("Info")
+InfoTab:CreateToggle({Name = "Debug Mode", Callback = function(s) debugMode = s; showNotification("Debug Mode", "Debug mode is " .. (s and "ON" or "OFF"), nil, 2) end, Default = false})
+
+RunService.RenderStepped:Connect(function()
+    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local newTrackedPlayers = {}
+
+    local autoBlockRadiusSq = AUTO_BLOCK_RADIUS * AUTO_BLOCK_RADIUS
+    local m1BlockRadiusSq = M1_BLOCK_RADIUS * M1_BLOCK_RADIUS
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local char = player.Character
+            local enemyRoot = char:FindFirstChild("HumanoidRootPart")
+            if enemyRoot then
+                local distanceSq = (myRoot.Position - enemyRoot.Position).Magnitude^2;
+
+                local shouldTrack = false
+                if (isAutoBlockActive or isAutoBarrageActive or isAutoBreakBlockActive or isCounterHitM1Active) and distanceSq <= autoBlockRadiusSq then
+                    shouldTrack = true
+                end
+                if isBlockM1sActive and distanceSq <= m1BlockRadiusSq then
+                    shouldTrack = true
+                end
+
+                if shouldTrack then
+                    newTrackedPlayers[player] = true
+                    if not currentlyTrackedPlayers[player] then
+                        addPlayerAnimationTracking(player)
+                        for _, d in ipairs(char:GetDescendants()) do
+                            if d:IsA("Model") and (d.Name == "StandMorph" or d:FindFirstChild("StandName")) then
+                                addPet(d, player)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    for player, _ in pairs(currentlyTrackedPlayers) do
+        if not newTrackedPlayers[player] then
+            removePlayerAnimationTracking(player)
+            for petModel, data in pairs(trackedPets) do
+                if data and data.owner == player then
+                    removePet(petModel)
+                end
+            end
+        end
+    end
+
+    currentlyTrackedPlayers = newTrackedPlayers
+end)
+
+updatePetESPState()
+updateStyleESPState()
