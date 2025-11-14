@@ -692,8 +692,8 @@ local function startAimLoop()
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "Script",
-    LoadingTitle = "Loading...",
+    Name = "YbaAutoBlocker V2",
+    LoadingTitle = "YbaBlockerV2",
     KeySystem = false,
     Theme = "AmberGlow"
 })
