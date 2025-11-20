@@ -1,1 +1,1 @@
-loadstring(game:HttpGet("https://pandadevelopment.net/virtual/file/3a23e78196fbcdcd"))()
+loadstring(game:HttpGet("https://gitlab.com/ybagroubpe/ProjectParry/-/raw/main/obfuscated.lua.txt"))()
