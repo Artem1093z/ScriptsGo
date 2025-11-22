@@ -25,8 +25,6 @@ local OriginalSettings = {
     Brightness = Lighting.Brightness
 }
 
-local LastPositions = {} 
-
 -- // 1. АТМОСФЕРА //
 RunService.RenderStepped:Connect(function()
     if SCRIPT_ENABLED then
@@ -66,11 +64,6 @@ local function ToggleScript()
             Lighting.ClockTime = OriginalSettings.ClockTime
             Lighting.Brightness = OriginalSettings.Brightness
             
-            -- Удаляем призраков
-            for _, v in pairs(workspace:GetChildren()) do
-                if v.Name == "CMoonGhost" then v:Destroy() end
-            end
-            
             -- Скрываем HUD
             if CoreGui:FindFirstChild("CMoonTargetHUD") then
                 CoreGui.CMoonTargetHUD.Main.Visible = false
@@ -84,6 +77,7 @@ local function ToggleScript()
                     local tag = c:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
                     local tracer = c:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
                     local cross = c:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
+                    local trail = c:FindFirstChild("MC_EnemyTrail"); if trail then trail.Enabled = false end -- Выключаем трейл
                 end
             end
         end
@@ -207,7 +201,6 @@ local function AddCrosshair()
 end
 
 local function EnsureLocalComponents(char)
-    -- Эта функция гарантирует, что у игрока есть аттачмент для трейсера
     local root = char:FindFirstChild("HumanoidRootPart")
     if root then
         if not root:FindFirstChild("TracerAtt") then
@@ -219,33 +212,55 @@ local function EnsureLocalComponents(char)
 end
 
 local function SetupEnemyVisuals(model)
+    local root = model:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Selection Box
     if not model:FindFirstChild("MC_Box") then
         local b = Instance.new("SelectionBox", model); b.Name="MC_Box"; b.Adornee=model; b.LineThickness=0.05; b.Color3=BrightPurple; b.SurfaceColor3=Purple; b.SurfaceTransparency=0.8; b.Transparency=0.3; b.Visible = false
     end
+
+    -- Name Tag
     if not model:FindFirstChild("MC_Tag") then
-        local head = model:WaitForChild("Head", 10)
+        local head = model:FindFirstChild("Head")
         if head then
             local bb = Instance.new("BillboardGui", model); bb.Name="MC_Tag"; bb.Adornee=head; bb.Size=UDim2.new(0,200,0,50); bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true; bb.Enabled = false
             local t = Instance.new("TextLabel", bb); t.Name="Label"; t.Size=UDim2.new(1,0,1,0); t.BackgroundTransparency=1; t.Font=Enum.Font.Code; t.TextSize=16; t.TextColor3=PureWhite; t.TextStrokeTransparency=0
         end
     end
+
+    -- Tracer Beam
     if not model:FindFirstChild("MC_Tracer") then
-        local root = model:WaitForChild("HumanoidRootPart", 10)
-        if root then
-            local att = Instance.new("Attachment", root)
-            local beam = Instance.new("Beam", model); beam.Name="MC_Tracer"; beam.Attachment1=att; beam.FaceCamera=true; beam.Width0=0.1; beam.Width1=0.1
-            beam.Color=ColorSequence.new(PureWhite, Purple); beam.Transparency=NumberSequence.new(0.2, 0.5); beam.Enabled = false
-        end
+        local att = Instance.new("Attachment", root)
+        local beam = Instance.new("Beam", model); beam.Name="MC_Tracer"; beam.Attachment1=att; beam.FaceCamera=true; beam.Width0=0.1; beam.Width1=0.1
+        beam.Color=ColorSequence.new(PureWhite, Purple); beam.Transparency=NumberSequence.new(0.2, 0.5); beam.Enabled = false
     end
+
+    -- Spinning Cross
     if not model:FindFirstChild("SpinningCrossUI") then
-        local root = model:WaitForChild("HumanoidRootPart", 10)
-        if root then
-            local bb = Instance.new("BillboardGui", model); bb.Name="SpinningCrossUI"; bb.Adornee=root; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true; bb.Enabled = false
-            local c = Instance.new("Frame", bb); c.Size=UDim2.new(1,0,1,0); c.BackgroundTransparency=1; c.AnchorPoint=Vector2.new(0.5,0.5); c.Position=UDim2.new(0.5,0,0.5,0)
-            local v = Instance.new("Frame", c); v.BackgroundColor3=BrightPurple; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0
-            local h = Instance.new("Frame", c); h.BackgroundColor3=BrightPurple; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0
-            TweenService:Create(c, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play()
-        end
+        local bb = Instance.new("BillboardGui", model); bb.Name="SpinningCrossUI"; bb.Adornee=root; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true; bb.Enabled = false
+        local c = Instance.new("Frame", bb); c.Size=UDim2.new(1,0,1,0); c.BackgroundTransparency=1; c.AnchorPoint=Vector2.new(0.5,0.5); c.Position=UDim2.new(0.5,0,0.5,0)
+        local v = Instance.new("Frame", c); v.BackgroundColor3=BrightPurple; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0
+        local h = Instance.new("Frame", c); h.BackgroundColor3=BrightPurple; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0
+        TweenService:Create(c, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play()
+    end
+
+    -- // НОВОЕ: ОПТИМИЗИРОВАННЫЙ ТРЕЙЛ (ВМЕСТО BACKTRACK) //
+    if not model:FindFirstChild("MC_EnemyTrail") then
+        local att0 = root:FindFirstChild("TrailAtt0") or Instance.new("Attachment", root)
+        att0.Name = "TrailAtt0"; att0.Position = Vector3.new(0, -1.5, 0)
+        
+        local att1 = root:FindFirstChild("TrailAtt1") or Instance.new("Attachment", root)
+        att1.Name = "TrailAtt1"; att1.Position = Vector3.new(0, 1.5, 0)
+
+        local trail = Instance.new("Trail", model)
+        trail.Name = "MC_EnemyTrail"
+        trail.Attachment0 = att0
+        trail.Attachment1 = att1
+        trail.Color = ColorSequence.new(PureWhite, Purple)
+        trail.Transparency = NumberSequence.new(0.4, 1)
+        trail.Lifetime = 0.5 -- Длина хвоста
+        trail.Enabled = false
     end
 end
 
@@ -257,7 +272,7 @@ task.spawn(function()
         else
             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
-            -- ГАРАНТИРУЕМ, ЧТО АТТАЧМЕНТ СУЩЕСТВУЕТ КАЖДЫЙ ЦИКЛ
+            -- ГАРАНТИРУЕМ, ЧТО АТТАЧМЕНТ СУЩЕСТВУЕТ
             local myAtt = nil
             if LocalPlayer.Character then
                 myAtt = EnsureLocalComponents(LocalPlayer.Character)
@@ -285,12 +300,11 @@ task.spawn(function()
                             local cross = char:FindFirstChild("SpinningCrossUI")
                             if cross then cross.Enabled = isVisible end
 
-                            -- ИСПРАВЛЕНИЕ ТРЕЙСЕРОВ: Принудительное обновление Attachment0
                             local tracer = char:FindFirstChild("MC_Tracer")
                             if tracer then 
                                 if isVisible and myAtt then
                                     tracer.Enabled = true
-                                    tracer.Attachment0 = myAtt -- ВСЕГДА обновляем связь
+                                    tracer.Attachment0 = myAtt 
                                 else
                                     tracer.Enabled = false
                                 end
@@ -309,29 +323,19 @@ task.spawn(function()
                                 end
                             end
 
-                            -- Backtrack с защитой от фризов
-                            if isVisible then
-                                local lastPos = LastPositions[plr.Name] or root.Position
-                                local moveDist = (root.Position - lastPos).Magnitude
-                                
-                                if moveDist > 0.5 and moveDist < 8 then
-                                    local g = Instance.new("Part", workspace); 
-                                    g.Name = "CMoonGhost"
-                                    g.Size=root.Size; g.CFrame=root.CFrame; g.Anchored=true; g.CanCollide=false; 
-                                    g.Material=Enum.Material.Neon; g.Color=Purple; g.Transparency=0.6
-                                    TweenService:Create(g, TweenInfo.new(1), {Transparency=1}):Play()
-                                    Debris:AddItem(g, 1)
-                                end
-                                LastPositions[plr.Name] = root.Position
-                            else
-                                LastPositions[plr.Name] = root.Position
+                            -- ВКЛЮЧАЕМ ТРЕЙЛ (Вместо Backtrack)
+                            local trail = char:FindFirstChild("MC_EnemyTrail")
+                            if trail then
+                                trail.Enabled = isVisible
                             end
+
                         else
                             -- Скрываем если мертв
                             local box = char:FindFirstChild("MC_Box"); if box then box.Visible = false end
                             local tracer = char:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
                             local tag = char:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
                             local cross = char:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
+                            local trail = char:FindFirstChild("MC_EnemyTrail"); if trail then trail.Enabled = false end
                         end
                     end
                 end
@@ -394,4 +398,4 @@ CreateTargetHUD()
 if LocalPlayer.Character then SetupLocal(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(SetupLocal)
 
-game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon Visuals", Text="Loaded", Duration=5})
+game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon Visuals", Text="Loaded.", Duration=5})
