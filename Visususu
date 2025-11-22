@@ -10,22 +10,87 @@ local LocalPlayer = Players.LocalPlayer
 local Purple = Color3.fromRGB(140, 0, 255)
 local BrightPurple = Color3.fromRGB(220, 80, 255)
 local PureWhite = Color3.new(1, 1, 1)
+local Grey = Color3.fromRGB(100, 100, 100)
 local GlobalColor = Purple
 
-local VISUAL_RADIUS = 100 -- Радиус работы
+local VISUAL_RADIUS = 100 
+local SCRIPT_ENABLED = true 
+
+local OriginalSettings = {
+    FogColor = Lighting.FogColor,
+    FogEnd = Lighting.FogEnd,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ClockTime = Lighting.ClockTime,
+    Brightness = Lighting.Brightness
+}
+
+local LastPositions = {} 
 
 -- // 1. АТМОСФЕРА //
 RunService.RenderStepped:Connect(function()
-    local alpha = (math.sin(tick() * 0.5) + 1) / 2
-    GlobalColor = PureWhite:Lerp(Purple, alpha)
-    
-    Lighting.FogColor = GlobalColor
-    Lighting.FogEnd = 600
-    Lighting.Ambient = GlobalColor
-    Lighting.ClockTime = 0 
+    if SCRIPT_ENABLED then
+        local alpha = (math.sin(tick() * 0.5) + 1) / 2
+        GlobalColor = PureWhite:Lerp(Purple, alpha)
+        
+        Lighting.FogColor = GlobalColor
+        Lighting.FogEnd = 600
+        Lighting.Ambient = GlobalColor
+        Lighting.OutdoorAmbient = GlobalColor
+        Lighting.ClockTime = 0 
+    end
 end)
 
--- // 2. WATERMARK HUD (ЛЕВЫЙ НИЖНИЙ УГОЛ) //
+-- // 2. УПРАВЛЕНИЕ (ВКЛ/ВЫКЛ) //
+local WatermarkTextLabel = nil
+local WatermarkGradient = nil
+
+local function ToggleScript()
+    SCRIPT_ENABLED = not SCRIPT_ENABLED
+    
+    if WatermarkTextLabel and WatermarkGradient then
+        if SCRIPT_ENABLED then
+            -- ВКЛЮЧЕНИЕ
+            WatermarkGradient.Enabled = true
+            WatermarkTextLabel.TextColor3 = PureWhite
+        else
+            -- ВЫКЛЮЧЕНИЕ
+            WatermarkGradient.Enabled = false
+            WatermarkTextLabel.TextColor3 = Grey
+            
+            -- Возвращаем атмосферу
+            Lighting.FogColor = OriginalSettings.FogColor
+            Lighting.FogEnd = OriginalSettings.FogEnd
+            Lighting.Ambient = OriginalSettings.Ambient
+            Lighting.OutdoorAmbient = OriginalSettings.OutdoorAmbient
+            Lighting.ClockTime = OriginalSettings.ClockTime
+            Lighting.Brightness = OriginalSettings.Brightness
+            
+            -- Удаляем призраков
+            for _, v in pairs(workspace:GetChildren()) do
+                if v.Name == "CMoonGhost" then v:Destroy() end
+            end
+            
+            -- Скрываем HUD
+            if CoreGui:FindFirstChild("CMoonTargetHUD") then
+                CoreGui.CMoonTargetHUD.Main.Visible = false
+            end
+
+            -- СКРЫВАЕМ ВСЕ ВИЗУАЛЫ
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr.Character then
+                    local c = plr.Character
+                    local box = c:FindFirstChild("MC_Box"); if box then box.Visible = false end
+                    local tag = c:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
+                    local tracer = c:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
+                    local cross = c:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
+                end
+            end
+        end
+    end
+end
+
+-- // 3. WATERMARK HUD //
 local function CreateWatermark()
     if CoreGui:FindFirstChild("CMoonWatermark") then CoreGui.CMoonWatermark:Destroy() end
     
@@ -35,7 +100,6 @@ local function CreateWatermark()
 
     local container = Instance.new("Frame", screengui)
     container.Size = UDim2.new(0, 180, 0, 35)
-    -- ИЗМЕНЕНО: Позиция (1, -55) опускает фрейм в самый низ с небольшим отступом
     container.Position = UDim2.new(0, 20, 1, -55) 
     container.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     container.BackgroundTransparency = 0.2
@@ -43,34 +107,43 @@ local function CreateWatermark()
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
     Instance.new("UIStroke", container).Color = Purple
     
-    local label = Instance.new("TextLabel", container)
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "C-Moon Visuals"
-    label.Font = Enum.Font.GothamBlack
-    label.TextSize = 16
-    label.TextColor3 = PureWhite
-    label.ZIndex = 2
+    WatermarkTextLabel = Instance.new("TextLabel", container)
+    WatermarkTextLabel.Size = UDim2.new(1, 0, 1, 0)
+    WatermarkTextLabel.BackgroundTransparency = 1
+    WatermarkTextLabel.Text = "C-Moon Visuals"
+    WatermarkTextLabel.Font = Enum.Font.GothamBlack
+    WatermarkTextLabel.TextSize = 16
+    WatermarkTextLabel.TextColor3 = PureWhite
+    WatermarkTextLabel.ZIndex = 2
 
-    local textGradient = Instance.new("UIGradient", label)
-    textGradient.Color = ColorSequence.new({
+    WatermarkGradient = Instance.new("UIGradient", WatermarkTextLabel)
+    WatermarkGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Purple), 
         ColorSequenceKeypoint.new(0.5, PureWhite), 
         ColorSequenceKeypoint.new(1, Purple)
     })
     
+    local btn = Instance.new("TextButton", container)
+    btn.Size = UDim2.new(1,0,1,0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.ZIndex = 3
+    btn.MouseButton1Click:Connect(ToggleScript)
+    
     RunService.RenderStepped:Connect(function() 
-        textGradient.Rotation = (tick() * 60) % 360 
+        if SCRIPT_ENABLED then
+            WatermarkGradient.Rotation = (tick() * 60) % 360 
+        end
     end)
 end
 
--- // 3. TARGET HUD //
+-- // 4. TARGET HUD //
 local TargetHUD, TargetName, TargetHealthBar, TargetHealthText, TargetImage, CurrentTarget = nil, nil, nil, nil, nil, nil
 
 local function CreateTargetHUD()
     if CoreGui:FindFirstChild("CMoonTargetHUD") then CoreGui.CMoonTargetHUD:Destroy() end
     local screengui = Instance.new("ScreenGui", CoreGui); screengui.Name = "CMoonTargetHUD"; screengui.IgnoreGuiInset = true
-    local mainFrame = Instance.new("Frame", screengui); mainFrame.Size = UDim2.new(0, 260, 0, 80); mainFrame.Position = UDim2.new(0.55, 0, 0.75, 0); mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); mainFrame.BackgroundTransparency = 0.2; mainFrame.Visible = false
+    local mainFrame = Instance.new("Frame", screengui); mainFrame.Size = UDim2.new(0, 260, 0, 80); mainFrame.Position = UDim2.new(0.55, 0, 0.75, 0); mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); mainFrame.BackgroundTransparency = 0.2; mainFrame.Visible = false; mainFrame.Name = "Main"
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10); Instance.new("UIStroke", mainFrame).Color = Purple
     TargetImage = Instance.new("ImageLabel", mainFrame); TargetImage.Size = UDim2.new(0, 60, 0, 60); TargetImage.Position = UDim2.new(0, 10, 0.5, -30); TargetImage.BackgroundTransparency = 0.5; Instance.new("UICorner", TargetImage).CornerRadius = UDim.new(0, 8)
     TargetName = Instance.new("TextLabel", mainFrame); TargetName.Size = UDim2.new(0, 150, 0, 20); TargetName.Position = UDim2.new(0, 80, 0, 15); TargetName.BackgroundTransparency = 1; TargetName.Text = "User"; TargetName.Font = Enum.Font.GothamBold; TargetName.TextColor3 = PureWhite; TargetName.TextSize = 18; TargetName.TextXAlignment = Enum.TextXAlignment.Left
@@ -80,228 +153,245 @@ local function CreateTargetHUD()
     TargetHUD = mainFrame
 end
 
-local function GetClosestPlayer()
+local function UpdateTargetHUDLogic()
+    if not SCRIPT_ENABLED or not TargetHUD then 
+        if TargetHUD then TargetHUD.Visible = false end
+        return 
+    end
+
     local closest = nil
     local minDist = VISUAL_RADIUS
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return nil end
-    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") then
-            local hum = plr.Character.Humanoid
-            if hum.Health > 0 then
-                local dist = (plr.Character.HumanoidRootPart.Position - myPos).Magnitude
-                if dist < minDist then minDist = dist; closest = plr end
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if myRoot then
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character then
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                local hum = plr.Character:FindFirstChild("Humanoid")
+                if root and hum and hum.Health > 0 then
+                    local dist = (root.Position - myRoot.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        closest = plr
+                    end
+                end
             end
         end
     end
-    return closest
-end
 
-local function UpdateHUD()
-    RunService.RenderStepped:Connect(function()
-        if not TargetHUD then return end
-        local target = GetClosestPlayer()
-        if target then
-            if CurrentTarget ~= target then
-                CurrentTarget = target
-                TargetName.Text = target.Name
-                task.spawn(function() TargetImage.Image = Players:GetUserThumbnailAsync(target.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
-                TargetHUD.Visible = true
-                TweenService:Create(TargetHUD, TweenInfo.new(0.3), {BackgroundTransparency = 0.2}):Play()
-            end
-            local hum = target.Character and target.Character:FindFirstChild("Humanoid")
-            if hum then
-                local hp = hum.Health; local maxHp = hum.MaxHealth; local pct = math.clamp(hp / maxHp, 0, 1)
-                TweenService:Create(TargetHealthBar, TweenInfo.new(0.2), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
-                TargetHealthText.Text = math.floor(hp) .. " / " .. math.floor(maxHp)
-            end
-        else
-            if CurrentTarget ~= nil then CurrentTarget = nil; TargetHUD.Visible = false end
+    if closest then
+        if CurrentTarget ~= closest then
+            CurrentTarget = closest
+            TargetName.Text = closest.Name
+            task.spawn(function() TargetImage.Image = Players:GetUserThumbnailAsync(closest.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+            TargetHUD.Visible = true
+            TweenService:Create(TargetHUD, TweenInfo.new(0.3), {BackgroundTransparency = 0.2}):Play()
         end
-    end)
+        local hum = closest.Character and closest.Character:FindFirstChild("Humanoid")
+        if hum then
+            local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+            TweenService:Create(TargetHealthBar, TweenInfo.new(0.2), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+            TargetHealthText.Text = math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
+        end
+    else
+        if CurrentTarget ~= nil then CurrentTarget = nil; TargetHUD.Visible = false end
+    end
 end
 
--- // 4. ПРИЦЕЛ //
+-- // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ //
 local function AddCrosshair()
     if CoreGui:FindFirstChild("CMoonCrosshair") then CoreGui.CMoonCrosshair:Destroy() end
     local gui = Instance.new("ScreenGui", CoreGui); gui.Name="CMoonCrosshair"; gui.IgnoreGuiInset=true
     local l = Instance.new("TextLabel", gui); l.Text="+"; l.BackgroundTransparency=1; l.Size=UDim2.new(0,50,0,50); l.Position=UDim2.new(0.5,0,0.5,-2); l.AnchorPoint=Vector2.new(0.5,0.5); l.TextColor3=PureWhite; l.TextStrokeTransparency=0; l.TextSize=24
+    RunService.RenderStepped:Connect(function() gui.Enabled = SCRIPT_ENABLED end)
 end
 
--- // 5. ТРЕЙСЕРЫ //
-local function UpdateTracers()
-    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-    local myAtt = myRoot:FindFirstChild("TracerAtt")
-    if not myAtt then myAtt = Instance.new("Attachment", myRoot); myAtt.Name = "TracerAtt" end
-    for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character then
-            local beam = v.Character:FindFirstChild("MC_Tracer")
-            if beam then beam.Attachment0 = myAtt end
+local function EnsureLocalComponents(char)
+    -- Эта функция гарантирует, что у игрока есть аттачмент для трейсера
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        if not root:FindFirstChild("TracerAtt") then
+            local att = Instance.new("Attachment", root); att.Name = "TracerAtt"
+        end
+        return root:FindFirstChild("TracerAtt")
+    end
+    return nil
+end
+
+local function SetupEnemyVisuals(model)
+    if not model:FindFirstChild("MC_Box") then
+        local b = Instance.new("SelectionBox", model); b.Name="MC_Box"; b.Adornee=model; b.LineThickness=0.05; b.Color3=BrightPurple; b.SurfaceColor3=Purple; b.SurfaceTransparency=0.8; b.Transparency=0.3; b.Visible = false
+    end
+    if not model:FindFirstChild("MC_Tag") then
+        local head = model:WaitForChild("Head", 10)
+        if head then
+            local bb = Instance.new("BillboardGui", model); bb.Name="MC_Tag"; bb.Adornee=head; bb.Size=UDim2.new(0,200,0,50); bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true; bb.Enabled = false
+            local t = Instance.new("TextLabel", bb); t.Name="Label"; t.Size=UDim2.new(1,0,1,0); t.BackgroundTransparency=1; t.Font=Enum.Font.Code; t.TextSize=16; t.TextColor3=PureWhite; t.TextStrokeTransparency=0
+        end
+    end
+    if not model:FindFirstChild("MC_Tracer") then
+        local root = model:WaitForChild("HumanoidRootPart", 10)
+        if root then
+            local att = Instance.new("Attachment", root)
+            local beam = Instance.new("Beam", model); beam.Name="MC_Tracer"; beam.Attachment1=att; beam.FaceCamera=true; beam.Width0=0.1; beam.Width1=0.1
+            beam.Color=ColorSequence.new(PureWhite, Purple); beam.Transparency=NumberSequence.new(0.2, 0.5); beam.Enabled = false
+        end
+    end
+    if not model:FindFirstChild("SpinningCrossUI") then
+        local root = model:WaitForChild("HumanoidRootPart", 10)
+        if root then
+            local bb = Instance.new("BillboardGui", model); bb.Name="SpinningCrossUI"; bb.Adornee=root; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true; bb.Enabled = false
+            local c = Instance.new("Frame", bb); c.Size=UDim2.new(1,0,1,0); c.BackgroundTransparency=1; c.AnchorPoint=Vector2.new(0.5,0.5); c.Position=UDim2.new(0.5,0,0.5,0)
+            local v = Instance.new("Frame", c); v.BackgroundColor3=BrightPurple; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0
+            local h = Instance.new("Frame", c); h.BackgroundColor3=BrightPurple; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0
+            TweenService:Create(c, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play()
         end
     end
 end
 
-local function AddTracer(char)
-    if char == LocalPlayer.Character then return end
-    local root = char:WaitForChild("HumanoidRootPart", 10)
-    if not root then return end
-    local enemyAtt = Instance.new("Attachment", root)
-    local beam = Instance.new("Beam", char); beam.Name="MC_Tracer"; beam.Attachment1=enemyAtt; beam.FaceCamera=true; beam.Width0=0.1; beam.Width1=0.1
-    beam.Color=ColorSequence.new(PureWhite, Purple); beam.Transparency=NumberSequence.new(0.2, 0.5)
-    UpdateTracers()
-end
-
--- // ОПТИМИЗИРОВАННЫЙ ЦИКЛ ПРОВЕРКИ (0.1s) //
+-- // 6. ОПТИМИЗИРОВАННЫЙ ЦИКЛ ОБНОВЛЕНИЯ //
 task.spawn(function()
     while true do
-        local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        if myRoot then
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= LocalPlayer and plr.Character then
-                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local dist = (root.Position - myRoot.Position).Magnitude
-                        local isVisible = dist <= VISUAL_RADIUS
+        if not SCRIPT_ENABLED then
+            task.wait(0.5) 
+        else
+            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            
+            -- ГАРАНТИРУЕМ, ЧТО АТТАЧМЕНТ СУЩЕСТВУЕТ КАЖДЫЙ ЦИКЛ
+            local myAtt = nil
+            if LocalPlayer.Character then
+                myAtt = EnsureLocalComponents(LocalPlayer.Character)
+            end
 
-                        local box = plr.Character:FindFirstChild("MC_Box")
-                        if box then box.Visible = isVisible end
+            if myRoot then
+                UpdateTargetHUDLogic()
 
-                        local tag = plr.Character:FindFirstChild("MC_Tag")
-                        if tag then tag.Enabled = isVisible end
+                for _, plr in pairs(Players:GetPlayers()) do
+                    if plr ~= LocalPlayer and plr.Character then
+                        local char = plr.Character
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        local hum = char:FindFirstChild("Humanoid")
+                        
+                        SetupEnemyVisuals(char)
 
-                        local tracer = plr.Character:FindFirstChild("MC_Tracer")
-                        if tracer then tracer.Enabled = isVisible end
+                        if root and hum and hum.Health > 0 then
+                            local dist = (root.Position - myRoot.Position).Magnitude
+                            local isVisible = dist <= VISUAL_RADIUS
 
-                        local cross = plr.Character:FindFirstChild("SpinningCrossUI")
-                        if cross then cross.Enabled = isVisible end
+                            -- Переключение видимости
+                            local box = char:FindFirstChild("MC_Box")
+                            if box then box.Visible = isVisible end
+
+                            local cross = char:FindFirstChild("SpinningCrossUI")
+                            if cross then cross.Enabled = isVisible end
+
+                            -- ИСПРАВЛЕНИЕ ТРЕЙСЕРОВ: Принудительное обновление Attachment0
+                            local tracer = char:FindFirstChild("MC_Tracer")
+                            if tracer then 
+                                if isVisible and myAtt then
+                                    tracer.Enabled = true
+                                    tracer.Attachment0 = myAtt -- ВСЕГДА обновляем связь
+                                else
+                                    tracer.Enabled = false
+                                end
+                            end
+
+                            local tag = char:FindFirstChild("MC_Tag")
+                            if tag then 
+                                tag.Enabled = isVisible
+                                if isVisible then
+                                    local lbl = tag:FindFirstChild("Label")
+                                    if lbl then
+                                        local hp = math.floor(hum.Health)
+                                        lbl.Text = string.format("%s [%d]", plr.Name, hp)
+                                        lbl.TextColor3 = hp > 50 and PureWhite or Color3.fromRGB(255, 50, 50)
+                                    end
+                                end
+                            end
+
+                            -- Backtrack с защитой от фризов
+                            if isVisible then
+                                local lastPos = LastPositions[plr.Name] or root.Position
+                                local moveDist = (root.Position - lastPos).Magnitude
+                                
+                                if moveDist > 0.5 and moveDist < 8 then
+                                    local g = Instance.new("Part", workspace); 
+                                    g.Name = "CMoonGhost"
+                                    g.Size=root.Size; g.CFrame=root.CFrame; g.Anchored=true; g.CanCollide=false; 
+                                    g.Material=Enum.Material.Neon; g.Color=Purple; g.Transparency=0.6
+                                    TweenService:Create(g, TweenInfo.new(1), {Transparency=1}):Play()
+                                    Debris:AddItem(g, 1)
+                                end
+                                LastPositions[plr.Name] = root.Position
+                            else
+                                LastPositions[plr.Name] = root.Position
+                            end
+                        else
+                            -- Скрываем если мертв
+                            local box = char:FindFirstChild("MC_Box"); if box then box.Visible = false end
+                            local tracer = char:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
+                            local tag = char:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
+                            local cross = char:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
+                        end
                     end
                 end
             end
+            task.wait(0.15)
         end
-        task.wait(0.1)
     end
 end)
-
--- // 6. ВИЗУАЛЫ ВРАГОВ //
-local function AddNametag(model, player)
-    if model:FindFirstChild("MC_Tag") then return end
-    local head = model:WaitForChild("Head", 10)
-    if not head then return end
-    local bb = Instance.new("BillboardGui", model); bb.Name="MC_Tag"; bb.Adornee=head; bb.Size=UDim2.new(0,200,0,50); bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true
-    local t = Instance.new("TextLabel", bb); t.Size=UDim2.new(1,0,1,0); t.BackgroundTransparency=1; t.Font=Enum.Font.Code; t.TextSize=16; t.TextColor3=PureWhite; t.TextStrokeTransparency=0
-    task.spawn(function()
-        local hum = model:WaitForChild("Humanoid", 10)
-        while model.Parent and hum do
-            local hp = math.floor(hum.Health)
-            t.Text = string.format("%s [%d]", player.Name, hp)
-            t.TextColor3 = hp > 50 and PureWhite or Color3.fromRGB(255, 50, 50)
-            task.wait(0.2)
-        end
-    end)
-end
-
-local function AddSelectionBox(model)
-    if model:FindFirstChild("MC_Box") then return end
-    local b = Instance.new("SelectionBox", model); b.Name="MC_Box"; b.Adornee=model; b.LineThickness=0.05; b.Color3=BrightPurple; b.SurfaceColor3=Purple; b.SurfaceTransparency=0.8; b.Transparency=0.3
-end
-
-local function AddSpinningCross(model)
-    if model:FindFirstChild("SpinningCrossUI") then return end
-    local root = model:WaitForChild("HumanoidRootPart", 10)
-    if not root then return end
-    local bb = Instance.new("BillboardGui", model); bb.Name="SpinningCrossUI"; bb.Adornee=root; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true
-    local c = Instance.new("Frame", bb); c.Size=UDim2.new(1,0,1,0); c.BackgroundTransparency=1; c.AnchorPoint=Vector2.new(0.5,0.5); c.Position=UDim2.new(0.5,0,0.5,0)
-    local v = Instance.new("Frame", c); v.BackgroundColor3=BrightPurple; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0
-    local h = Instance.new("Frame", c); h.BackgroundColor3=BrightPurple; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0
-    TweenService:Create(c, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play()
-end
-
-local function StartBacktrack(char)
-    if char == LocalPlayer.Character then return end
-    local root = char:WaitForChild("HumanoidRootPart", 10)
-    if not root then return end
-    task.spawn(function()
-        local lastPos = root.Position
-        while char.Parent and root.Parent do
-            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myRoot then
-                local dist = (root.Position - myRoot.Position).Magnitude
-                if dist <= VISUAL_RADIUS then
-                    if (root.Position - lastPos).Magnitude > 0.5 then
-                        local g = Instance.new("Part", workspace); g.Size=root.Size; g.CFrame=root.CFrame; g.Anchored=true; g.CanCollide=false; g.Material=Enum.Material.Neon; g.Color=Purple; g.Transparency=0.6
-                        TweenService:Create(g, TweenInfo.new(1), {Transparency=1}):Play(); Debris:AddItem(g, 1); lastPos = root.Position
-                    end
-                end
-            end
-            task.wait(0.1)
-        end
-    end)
-end
 
 -- // 7. ЛОКАЛЬНЫЙ ИГРОК //
 local function SetupLocal(char)
     AddCrosshair()
+    EnsureLocalComponents(char)
+    
     local head = char:WaitForChild("Head", 10)
     if head then
         local hat = Instance.new("Part", workspace); hat.Name="ChinaHat"; hat.Size=Vector3.new(1,1,1); hat.CanCollide=false; hat.Anchored=true; hat.Transparency=0.3; hat.Material=Enum.Material.Neon
         local m = Instance.new("SpecialMesh", hat); m.MeshType=Enum.MeshType.FileMesh; m.MeshId="rbxassetid://1033714"; m.Scale=Vector3.new(2.2,1.1,2.2)
         local b = Instance.new("SelectionBox", hat); b.Adornee=hat; b.LineThickness=0.05; b.Color3=PureWhite; b.Transparency=0
+        
         RunService.RenderStepped:Connect(function()
-            if not char.Parent then hat:Destroy() return end
-            hat.Color = GlobalColor; hat.CFrame = head.CFrame * CFrame.new(0,1.1,0) * CFrame.Angles(0, tick()*2, 0)
+            if not char.Parent or not hat then if hat then hat:Destroy() end return end
+            if SCRIPT_ENABLED then
+                hat.Transparency = 0.3; b.Transparency = 0; hat.Color = GlobalColor
+                hat.CFrame = head.CFrame * CFrame.new(0,1.1,0) * CFrame.Angles(0, tick()*2, 0)
+            else
+                hat.Transparency = 1; b.Transparency = 1
+            end
         end)
     end
+    
     local torso = char:WaitForChild("UpperTorso", 5) or char:WaitForChild("Torso", 5)
     local root = char:WaitForChild("HumanoidRootPart", 5)
     if torso and root then
         local cape = Instance.new("Part", char); cape.Name="Cape"; cape.Size=Vector3.new(1.8,3.5,0.1); cape.Material=Enum.Material.Neon; cape.CanCollide=false; cape.Massless=true
         local b = Instance.new("SelectionBox", cape); b.Adornee=cape; b.Color3=PureWhite; b.LineThickness=0.05
         local mot = Instance.new("Motor6D", cape); mot.Part0=torso; mot.Part1=cape; mot.C0=CFrame.new(0,0.8,0.5); mot.C1=CFrame.new(0,1.75,0)
-        task.spawn(function()
-            while cape.Parent and char.Parent do
+        
+        RunService.Heartbeat:Connect(function()
+            if not SCRIPT_ENABLED then cape.Transparency = 1; b.Transparency = 1; return else cape.Transparency = 0; b.Transparency = 0 end
+            if cape.Parent and char.Parent then
                 cape.Color = GlobalColor
                 local vel = root.Velocity; local spd = vel.Magnitude; local ang = 0
                 if spd > 0.1 then ang = math.clamp(spd/15, 0, 0.8) end
                 if vel.Y > 0 then ang = ang + 0.5 elseif vel.Y < 0 then ang = ang + 0.8 end
                 mot.C0 = mot.C0:Lerp(CFrame.new(0,0.8,0.5)*CFrame.Angles(math.rad(-ang*45),0,0), 0.1)
-                task.wait(0.016)
             end
         end)
     end
+    
     local tAtt1, tAtt2 = Instance.new("Attachment", root), Instance.new("Attachment", root)
     tAtt1.Position=Vector3.new(0,-1.5,0); tAtt2.Position=Vector3.new(0,1.5,0)
     local t = Instance.new("Trail", char); t.Attachment0=tAtt1; t.Attachment1=tAtt2; t.Color=ColorSequence.new(PureWhite, Purple); t.Transparency=NumberSequence.new(0.2,1); t.Lifetime=0.5
-    UpdateTracers()
-end
-
-local function SetupEnemy(char, plr)
-    task.spawn(function()
-        local root = char:WaitForChild("HumanoidRootPart", 10)
-        if not root then return end
-        AddSelectionBox(char)
-        AddNametag(char, plr)
-        AddTracer(char)
-        AddSpinningCross(char)
-        StartBacktrack(char)
-    end)
+    RunService.RenderStepped:Connect(function() t.Enabled = SCRIPT_ENABLED end)
 end
 
 -- ИНИЦИАЛИЗАЦИЯ
 CreateWatermark()
 CreateTargetHUD()
-UpdateHUD()
-
-for _, v in pairs(Players:GetPlayers()) do
-    if v ~= LocalPlayer and v.Character then SetupEnemy(v.Character, v) end
-    v.CharacterAdded:Connect(function(c) if v ~= LocalPlayer then SetupEnemy(c, v) end end)
-end
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function(c) if p ~= LocalPlayer then SetupEnemy(c, p) end end)
-end)
-
 if LocalPlayer.Character then SetupLocal(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(SetupLocal)
 
-game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon Client", Text="Loaded!", Duration=3})
+game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon Visuals", Text="Loaded", Duration=5})
