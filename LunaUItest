@@ -1,0 +1,276 @@
+--[[
+    ECLIPSE UI LIBRARY V13 (FINAL RELEASE)
+    - Compact, Mobile Friendly, Modern
+    - Stacked Notifications
+    - Reliable Config & Theme System
+    - Icon Tabs
+]]
+
+local Eclipse = { Flags = {}, Folder = "", ThemeRegistry = {} }
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+
+--// THEMES DATABASE
+local Themes = {
+    ["Clean White"] = { Main = Color3.fromRGB(245,246,250), Sec = Color3.fromRGB(255,255,255), Text = Color3.fromRGB(40,40,50), TextDark = Color3.fromRGB(120,120,130), Stroke = Color3.fromRGB(215,215,225), Accent = Color3.fromRGB(52,120,255) },
+    ["Night Blue"]  = { Main = Color3.fromRGB(20,25,35),    Sec = Color3.fromRGB(30,35,50),    Text = Color3.fromRGB(240,240,255),TextDark = Color3.fromRGB(140,150,180), Stroke = Color3.fromRGB(50,60,80),    Accent = Color3.fromRGB(80,160,255) },
+    ["Dark Mode"]   = { Main = Color3.fromRGB(30,30,35),    Sec = Color3.fromRGB(40,40,45),    Text = Color3.fromRGB(255,255,255),TextDark = Color3.fromRGB(160,160,170), Stroke = Color3.fromRGB(60,60,65),    Accent = Color3.fromRGB(120,120,255) },
+    ["Void Purple"] = { Main = Color3.fromRGB(15,15,20),    Sec = Color3.fromRGB(25,25,35),    Text = Color3.fromRGB(230,230,255),TextDark = Color3.fromRGB(100,100,120), Stroke = Color3.fromRGB(40,35,60),    Accent = Color3.fromRGB(160,50,255) },
+    ["Blood Red"]   = { Main = Color3.fromRGB(25,15,15),    Sec = Color3.fromRGB(40,25,25),    Text = Color3.fromRGB(255,240,240),TextDark = Color3.fromRGB(160,120,120), Stroke = Color3.fromRGB(70,40,40),    Accent = Color3.fromRGB(255,60,60) },
+    ["Minty"]       = { Main = Color3.fromRGB(240,255,245), Sec = Color3.fromRGB(255,255,255), Text = Color3.fromRGB(40,60,50), TextDark = Color3.fromRGB(120,140,130), Stroke = Color3.fromRGB(180,220,200), Accent = Color3.fromRGB(0,200,120) },
+    ["Ocean"]       = { Main = Color3.fromRGB(20,40,50),    Sec = Color3.fromRGB(30,50,60),    Text = Color3.fromRGB(220,255,255),TextDark = Color3.fromRGB(130,160,170), Stroke = Color3.fromRGB(40,70,80),    Accent = Color3.fromRGB(0,220,255) },
+    ["Sunset"]      = { Main = Color3.fromRGB(255,245,240), Sec = Color3.fromRGB(255,255,255),Text = Color3.fromRGB(60,30,30),  TextDark = Color3.fromRGB(170,120,110), Stroke = Color3.fromRGB(255,210,200), Accent = Color3.fromRGB(255,120,80) },
+    ["Carbon"]      = { Main = Color3.fromRGB(20,20,20),    Sec = Color3.fromRGB(30,30,30),    Text = Color3.fromRGB(230,230,230),TextDark = Color3.fromRGB(120,120,120), Stroke = Color3.fromRGB(50,50,50),    Accent = Color3.fromRGB(255,180,50) },
+    ["Tokio"]       = { Main = Color3.fromRGB(30,30,46),    Sec = Color3.fromRGB(40,40,60),    Text = Color3.fromRGB(200,210,255),TextDark = Color3.fromRGB(120,120,150), Stroke = Color3.fromRGB(50,50,80),    Accent = Color3.fromRGB(255,100,180) },
+}
+Eclipse.CurrentTheme = Themes["Night Blue"]
+
+--// CORE UTILS
+local function Tween(obj, props, time)
+    local T = TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad), props)
+    T:Play()
+    return T
+end
+
+function Eclipse:Register(Obj, PropertyName, ThemeKey)
+    table.insert(Eclipse.ThemeRegistry, { Obj=Obj, Prop=PropertyName, Key=ThemeKey })
+    if Obj and Eclipse.CurrentTheme[ThemeKey] then 
+        pcall(function() Obj[PropertyName] = Eclipse.CurrentTheme[ThemeKey] end)
+    end
+end
+
+function Eclipse:SetTheme(Name)
+    if not Themes[Name] then return end
+    Eclipse.CurrentTheme = Themes[Name]
+    for _, d in pairs(Eclipse.ThemeRegistry) do
+        if d.Obj and d.Obj.Parent then
+            pcall(function() Tween(d.Obj, {[d.Prop] = Eclipse.CurrentTheme[d.Key]}) end)
+        end
+    end
+end
+
+local function AddShadow(parent)
+    local s = Instance.new("ImageLabel")
+    s.AnchorPoint, s.BackgroundTransparency = Vector2.new(0.5,0.5), 1
+    s.Position, s.Size = UDim2.new(0.5,0,0.5,0), UDim2.new(1,36,1,36)
+    s.ZIndex = parent.ZIndex - 1
+    s.Image = "rbxassetid://6015897843"; s.ImageTransparency = 0.6; s.ImageColor3 = Color3.fromRGB(0,0,0)
+    s.ScaleType, s.SliceCenter = Enum.ScaleType.Slice, Rect.new(49,49,450,450)
+    s.Parent = parent
+end
+
+local function MakeDraggable(TopBar, Widget)
+    local Dragging, DragInput, DragStart, StartPos
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            Dragging = true; DragStart = input.Position; StartPos = Widget.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
+        end
+    end)
+    TopBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then DragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == DragInput and Dragging then
+            local Delta = input.Position - DragStart
+            Tween(Widget, {Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)}, 0.05)
+        end
+    end)
+end
+
+--// CONFIGURATION IO
+function Eclipse:Save(N) if not Eclipse.Folder then return end; if not isfolder(Eclipse.Folder) then makefolder(Eclipse.Folder) end; writefile(Eclipse.Folder.."/"..N..".json", HttpService:JSONEncode(Eclipse.Flags)) end
+function Eclipse:Load(N) 
+    local p=Eclipse.Folder.."/"..N..".json"; if isfile(p) then 
+        local s,r=pcall(function() return HttpService:JSONDecode(readfile(p)) end)
+        if s then for f,v in pairs(r) do if Eclipse.Flags[f] then Eclipse.Flags[f](v) end end end 
+    end 
+end
+function Eclipse:GetList() 
+    if not isfolder(Eclipse.Folder) then return {} end
+    local t={}; for _,f in pairs(listfiles(Eclipse.Folder)) do local n=f:match("([^/]+)%.json$"); if n then table.insert(t,n) end end return t 
+end
+
+--// MAIN FUNCTION
+function Eclipse:CreateWindow(Settings)
+    Eclipse.Folder = Settings.ConfigFolder or "EclipseConfig"
+    local Screen = Instance.new("ScreenGui"); Screen.Name = "EclipseLibrary"; Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    pcall(function() Screen.Parent = CoreGui end); if not Screen.Parent then Screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+    -- NOTIFICATIONS
+    local NotifHolder = Instance.new("Frame"); NotifHolder.Size = UDim2.new(0,240,1,0); NotifHolder.Position = UDim2.new(1,-15,1,-15); NotifHolder.AnchorPoint = Vector2.new(1,1); NotifHolder.BackgroundTransparency = 1; NotifHolder.Parent = Screen
+    local NotifList = Instance.new("UIListLayout"); NotifList.VerticalAlignment = Enum.VerticalAlignment.Bottom; NotifList.HorizontalAlignment = Enum.HorizontalAlignment.Right; NotifList.Padding = UDim.new(0,5); NotifList.SortOrder = Enum.SortOrder.LayoutOrder; NotifList.Parent = NotifHolder
+
+    function Eclipse:Notify(Title, Msg, Dur)
+        local N = Instance.new("Frame"); N.Size = UDim2.new(1,0,0,50); N.BackgroundTransparency = 0.1; N.Parent = NotifHolder
+        Eclipse:Register(N, "BackgroundColor3", "Main"); Instance.new("UICorner", N).CornerRadius = UDim.new(0,6)
+        local S = Instance.new("UIStroke", N); Eclipse:Register(S, "Color", "Accent")
+        local T = Instance.new("TextLabel"); T.Size = UDim2.new(1,-20,0,20); T.Position = UDim2.new(0,10,0,5); T.BackgroundTransparency = 1; T.Text = Title; T.Font = Enum.Font.GothamBold; T.TextSize = 13; T.TextXAlignment = Enum.TextXAlignment.Left; T.Parent = N; Eclipse:Register(T, "TextColor3", "Accent")
+        local C = Instance.new("TextLabel"); C.Size = UDim2.new(1,-20,0,20); C.Position = UDim2.new(0,10,0,22); C.BackgroundTransparency = 1; C.Text = Msg; C.Font = Enum.Font.Gotham; C.TextSize = 12; C.TextXAlignment = Enum.TextXAlignment.Left; C.Parent = N; Eclipse:Register(C, "TextColor3", "Text")
+        N.BackgroundTransparency=1; T.TextTransparency=1; C.TextTransparency=1; S.Transparency=1
+        Tween(N, {BackgroundTransparency=0.1}); Tween(T, {TextTransparency=0}); Tween(C, {TextTransparency=0}); Tween(S, {Transparency=0})
+        task.delay(Dur or 3, function()
+            if not N then return end 
+            local anim = Tween(N, {BackgroundTransparency=1}); Tween(T,{TextTransparency=1}); Tween(C,{TextTransparency=1}); Tween(S,{Transparency=1})
+            anim.Completed:Connect(function() if N then N:Destroy() end end)
+        end)
+    end
+
+    -- MOBILE TOGGLE BUTTON
+    local MBtn = Instance.new("ImageButton"); MBtn.Size=UDim2.fromOffset(50,50); MBtn.Position=UDim2.new(0.1,0,0.2,0); MBtn.Image="rbxassetid://125366422603566"; MBtn.Visible=true; MBtn.Parent=Screen
+    if MBtn.Image=="" then MBtn.Image="rbxassetid://6031280882" end
+    Eclipse:Register(MBtn, "BackgroundColor3", "Sec"); Instance.new("UICorner", MBtn).CornerRadius=UDim.new(1,0); local MBS=Instance.new("UIStroke", MBtn); MBS.Thickness=2; Eclipse:Register(MBS, "Color", "Accent")
+    AddShadow(MBtn); MakeDraggable(MBtn, MBtn)
+
+    -- MAIN FRAME
+    local Main = Instance.new("Frame"); Main.Size = UDim2.fromOffset(460, 300); Main.Position = UDim2.fromScale(0.5,0.5); Main.AnchorPoint = Vector2.new(0.5,0.5); Main.Visible = false; Main.Parent = Screen
+    Eclipse:Register(Main, "BackgroundColor3", "Main"); Instance.new("UICorner", Main).CornerRadius = UDim.new(0,10); local MS = Instance.new("UIStroke", Main); MS.Thickness=1.5; Eclipse:Register(MS, "Color", "Stroke")
+    AddShadow(Main)
+
+    -- TOPBAR
+    local Top = Instance.new("Frame"); Top.Size = UDim2.new(1,0,0,40); Top.BackgroundTransparency = 1; Top.Parent = Main; MakeDraggable(Top, Main)
+    local TLbl = Instance.new("TextLabel"); TLbl.Text = Settings.Name; TLbl.Size = UDim2.new(1,-80,1,0); TLbl.Position = UDim2.new(0,15,0,0); TLbl.BackgroundTransparency = 1; TLbl.Font = Enum.Font.GothamBold; TLbl.TextSize = 14; TLbl.TextXAlignment = Enum.TextXAlignment.Left; TLbl.Parent = Top
+    Eclipse:Register(TLbl, "TextColor3", "Text")
+
+    local Close = Instance.new("ImageButton"); Close.Size = UDim2.fromOffset(20,20); Close.Position = UDim2.new(1,-30,0.5,-10); Close.BackgroundTransparency = 1; Close.Image="rbxassetid://6031094678"; Close.ImageColor3=Color3.fromRGB(255,80,80); Close.Parent=Top
+    local Gear = Instance.new("ImageButton"); Gear.Size = UDim2.fromOffset(20,20); Gear.Position = UDim2.new(1,-60,0.5,-10); Gear.BackgroundTransparency = 1; Gear.Image="rbxassetid://6031280882"; Gear.Parent=Top; Eclipse:Register(Gear, "ImageColor3", "TextDark")
+
+    local function Toggle() Main.Visible=not Main.Visible; MBtn.Visible=not Main.Visible end
+    Close.MouseButton1Click:Connect(Toggle); MBtn.MouseButton1Click:Connect(Toggle)
+
+    -- LAYOUT
+    local Sidebar = Instance.new("ScrollingFrame"); Sidebar.Size=UDim2.new(0,60,1,-45); Sidebar.Position=UDim2.new(0,10,0,45); Sidebar.BackgroundTransparency=1; Sidebar.ScrollBarThickness=0; Sidebar.Parent=Main; Sidebar.ScrollingDirection=Enum.ScrollingDirection.Y
+    Instance.new("UIListLayout", Sidebar).Padding=UDim.new(0,8)
+    local Content = Instance.new("Frame"); Content.Size=UDim2.new(1,-85,1,-45); Content.Position=UDim2.new(0,80,0,45); Content.BackgroundTransparency=1; Content.ClipsDescendants=true; Content.Parent=Main
+
+    -- SETTINGS OVERLAY
+    local SetOverlay = Instance.new("Frame"); SetOverlay.Size=UDim2.new(1,0,1,-40); SetOverlay.Position=UDim2.new(0,0,0,40); SetOverlay.Visible=false; SetOverlay.ZIndex=20; SetOverlay.Parent=Main; Eclipse:Register(SetOverlay, "BackgroundColor3", "Main")
+    local SetScroll = Instance.new("ScrollingFrame"); SetScroll.Size=UDim2.new(1,0,1,0); SetScroll.BackgroundTransparency=1; SetScroll.ScrollBarThickness=2; SetScroll.ScrollingDirection=Enum.ScrollingDirection.Y; SetScroll.Parent=SetOverlay
+    local SLL = Instance.new("UIListLayout", SetScroll); SLL.SortOrder=Enum.SortOrder.LayoutOrder; SLL.Padding=UDim.new(0,8); 
+    Instance.new("UIPadding", SetScroll).PaddingTop=UDim.new(0,10); Instance.new("UIPadding", SetScroll).PaddingLeft=UDim.new(0,15); Instance.new("UIPadding", SetScroll).PaddingRight=UDim.new(0,15)
+    SLL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() SetScroll.CanvasSize = UDim2.new(0,0,0, SLL.AbsoluteContentSize.Y+20) end)
+
+    local function Head(t, o) local l=Instance.new("TextLabel"); l.Text=t:upper(); l.Size=UDim2.new(1,0,0,20); l.BackgroundTransparency=1; l.Font=Enum.Font.GothamBold; l.TextSize=11; l.TextXAlignment=Enum.TextXAlignment.Left; l.LayoutOrder=o; l.Parent=SetScroll; Eclipse:Register(l,"TextColor3","TextDark") end
+    
+    Head("Themes", 1)
+    local Grid = Instance.new("Frame"); Grid.BackgroundTransparency=1; Grid.LayoutOrder=2; Grid.Parent=SetScroll
+    local GL = Instance.new("UIGridLayout", Grid); GL.CellSize=UDim2.new(0.48,0,0,28); GL.CellPadding=UDim2.new(0.02,0,0,5)
+    GL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Grid.Size=UDim2.new(1,0,0,GL.AbsoluteContentSize.Y) end)
+    for n, _ in pairs(Themes) do
+        local B = Instance.new("TextButton"); B.Text=n; B.Font=Enum.Font.Gotham; B.TextSize=11; B.Parent=Grid
+        Eclipse:Register(B, "BackgroundColor3", "Sec"); Eclipse:Register(B, "TextColor3", "Text"); Instance.new("UICorner", B).CornerRadius=UDim.new(0,4); local S=Instance.new("UIStroke", B); Eclipse:Register(S, "Color", "Stroke")
+        B.MouseButton1Click:Connect(function() Eclipse:SetTheme(n) end)
+    end
+
+    Head("Config", 3)
+    local CBox = Instance.new("TextBox"); CBox.Size=UDim2.new(1,0,0,30); CBox.Text=""; CBox.PlaceholderText="Config Name"; CBox.Font=Enum.Font.Gotham; CBox.TextSize=12; CBox.LayoutOrder=4; CBox.Parent=SetScroll
+    Eclipse:Register(CBox,"BackgroundColor3","Sec"); Eclipse:Register(CBox,"TextColor3","Text"); Eclipse:Register(CBox,"PlaceholderColor3","TextDark"); Instance.new("UICorner", CBox).CornerRadius=UDim.new(0,4); local CBS=Instance.new("UIStroke", CBox); Eclipse:Register(CBS,"Color","Stroke")
+    local CBtn = Instance.new("TextButton"); CBtn.Size=UDim2.new(1,0,0,28); CBtn.Text="Save / Create"; CBtn.LayoutOrder=5; CBtn.Font=Enum.Font.GothamBold; CBtn.TextSize=11; CBtn.TextColor3=Color3.new(1,1,1); CBtn.Parent=SetScroll
+    Eclipse:Register(CBtn, "BackgroundColor3", "Accent"); Instance.new("UICorner", CBtn).CornerRadius=UDim.new(0,4)
+
+    Head("Saved Configs", 6)
+    local CF = Instance.new("Frame"); CF.BackgroundTransparency=1; CF.LayoutOrder=7; CF.Parent=SetScroll; local CFL=Instance.new("UIListLayout", CF); CFL.Padding=UDim.new(0,5)
+    CFL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() CF.Size=UDim2.new(1,0,0,CFL.AbsoluteContentSize.Y) end)
+    local function Ref()
+        for _,c in pairs(CF:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        for _,f in pairs(Eclipse:GetList()) do
+            local B=Instance.new("TextButton"); B.Size=UDim2.new(1,0,0,28); B.Text=f; B.Font=Enum.Font.Gotham; B.TextSize=11; B.Parent=CF
+            Eclipse:Register(B, "BackgroundColor3", "Sec"); Eclipse:Register(B, "TextColor3", "Text"); Instance.new("UICorner", B).CornerRadius=UDim.new(0,4); local S=Instance.new("UIStroke", B); Eclipse:Register(S, "Color", "Stroke")
+            B.MouseButton1Click:Connect(function() Eclipse:Load(f); Eclipse:Notify("System","Loaded: "..f, 2) end)
+        end
+    end
+    CBtn.MouseButton1Click:Connect(function() if CBox.Text~="" then Eclipse:Save(CBox.Text); CBox.Text=""; Ref() end end)
+    Gear.MouseButton1Click:Connect(function() SetOverlay.Visible=not SetOverlay.Visible; if SetOverlay.Visible then Ref() end end)
+    Ref()
+
+    -- TABS SYSTEM
+    local TabLib = {}
+    function TabLib:CreateTab(Name, Icon)
+        local TS = Instance.new("ScrollingFrame"); TS.Size=UDim2.new(1,0,1,0); TS.BackgroundTransparency=1; TS.Visible=false; TS.ScrollBarThickness=2; TS.ScrollingDirection=Enum.ScrollingDirection.Y; TS.Parent=Content
+        Eclipse:Register(TS, "ScrollBarImageColor3", "Accent")
+        local TL = Instance.new("UIListLayout", TS); TL.Padding=UDim.new(0,6); TL.SortOrder=Enum.SortOrder.LayoutOrder
+        local TP = Instance.new("UIPadding", TS); TP.PaddingTop=UDim.new(0,5); TP.PaddingRight=UDim.new(0,5)
+        TL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() TS.CanvasSize=UDim2.new(0,0,0,TL.AbsoluteContentSize.Y+10) end)
+
+        local BT = Instance.new("TextButton"); BT.Size=UDim2.new(0,40,0,40); BT.Text=""; BT.Parent=Sidebar
+        Eclipse:Register(BT, "BackgroundColor3", "Main"); Instance.new("UICorner", BT).CornerRadius=UDim.new(0,8)
+        local ICO = Instance.new("ImageLabel"); ICO.Size=UDim2.fromScale(0.6,0.6); ICO.Position=UDim2.fromScale(0.2,0.2); ICO.BackgroundTransparency=1; ICO.Image=Icon or "rbxassetid://7733960981"; ICO.Parent=BT
+        Eclipse:Register(ICO, "ImageColor3", "TextDark")
+
+        BT.MouseButton1Click:Connect(function()
+            for _,v in pairs(Content:GetChildren()) do v.Visible=false end
+            for _,v in pairs(Sidebar:GetChildren()) do 
+                if v:IsA("TextButton") then Eclipse:Register(v,"BackgroundColor3","Main"); Tween(v:FindFirstChild("ImageLabel"), {ImageColor3=Eclipse.CurrentTheme.TextDark}) end 
+            end
+            TS.Visible=true; Eclipse:Register(BT,"BackgroundColor3","Sec"); Tween(ICO, {ImageColor3=Eclipse.CurrentTheme.Accent})
+        end)
+        if #Sidebar:GetChildren()==2 then TS.Visible=true; Eclipse:Register(BT,"BackgroundColor3","Sec"); Tween(ICO, {ImageColor3=Eclipse.CurrentTheme.Accent}) end
+
+        local Elm = {}
+        function Elm:CreateSection(t) local f=Instance.new("Frame"); f.Size=UDim2.new(1,0,0,20); f.BackgroundTransparency=1; f.Parent=TS; local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,0,1,0); l.Text=t:upper(); l.BackgroundTransparency=1; l.Font=Enum.Font.GothamBold; l.TextSize=10; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=f; Eclipse:Register(l,"TextColor3","TextDark") end
+        function Elm:CreateButton(a)
+            local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,34); b.Text=a.Name; b.AutoButtonColor=false; b.Font=Enum.Font.Gotham; b.TextSize=12; b.Parent=TS
+            Eclipse:Register(b,"BackgroundColor3","Sec"); Eclipse:Register(b,"TextColor3","Text"); Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); local s=Instance.new("UIStroke",b); Eclipse:Register(s,"Color","Stroke")
+            b.MouseButton1Click:Connect(function() Tween(b,{BackgroundColor3=Eclipse.CurrentTheme.Accent}); task.wait(0.1); Tween(b,{BackgroundColor3=Eclipse.CurrentTheme.Sec}); pcall(a.Callback) end)
+        end
+        function Elm:CreateToggle(a)
+            local v=a.CurrentValue or false; local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,34); b.Text=""; b.AutoButtonColor=false; b.Parent=TS
+            Eclipse:Register(b,"BackgroundColor3","Sec"); Instance.new("UICorner",b).CornerRadius=UDim.new(0,6); local s=Instance.new("UIStroke",b); Eclipse:Register(s,"Color","Stroke")
+            local l=Instance.new("TextLabel"); l.Text=a.Name; l.Size=UDim2.new(1,-50,1,0); l.Position=UDim2.new(0,10,0,0); l.BackgroundTransparency=1; l.Font=Enum.Font.Gotham; l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=b; Eclipse:Register(l,"TextColor3","Text")
+            local box=Instance.new("Frame"); box.Size=UDim2.fromOffset(34,18); box.Position=UDim2.new(1,-44,0.5,-9); box.Parent=b; Instance.new("UICorner",box).CornerRadius=UDim.new(1,0)
+            local dot=Instance.new("Frame"); dot.Size=UDim2.fromOffset(14,14); dot.Parent=box; Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0); Eclipse:Register(dot,"BackgroundColor3","Sec")
+            local function upd() Eclipse:Register(box,"BackgroundColor3", v and "Accent" or "Main"); Tween(dot,{Position=v and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7)}); pcall(a.Callback,v) end
+            if a.Flag then Eclipse.Flags[a.Flag]=function(n) v=n; upd() end end; upd(); b.MouseButton1Click:Connect(function() v=not v; upd() end)
+        end
+        function Elm:CreateInput(a)
+            local f=Instance.new("Frame"); f.Size=UDim2.new(1,0,0,36); f.Parent=TS; Eclipse:Register(f,"BackgroundColor3","Sec"); Instance.new("UICorner",f).CornerRadius=UDim.new(0,6); local s=Instance.new("UIStroke",f); Eclipse:Register(s,"Color","Stroke")
+            local box=Instance.new("TextBox"); box.Size=UDim2.new(1,-20,1,0); box.Position=UDim2.new(0,10,0,0); box.BackgroundTransparency=1; box.Text=""; box.PlaceholderText=a.Placeholder or a.Name; box.Font=Enum.Font.Gotham; box.TextSize=12; box.TextXAlignment=Enum.TextXAlignment.Left; box.Parent=f
+            Eclipse:Register(box,"TextColor3","Text"); Eclipse:Register(box,"PlaceholderColor3","TextDark")
+            box.FocusLost:Connect(function(enter) if enter then pcall(a.Callback, box.Text); if a.RemoveTextAfterFocusLost then box.Text="" end end end)
+        end
+        function Elm:CreateSlider(a)
+            local min,max,val=a.Range[1],a.Range[2],a.CurrentValue or a.Range[1]
+            local f=Instance.new("Frame"); f.Size=UDim2.new(1,0,0,45); f.Parent=TS; Eclipse:Register(f,"BackgroundColor3","Sec"); Instance.new("UICorner",f).CornerRadius=UDim.new(0,6); local s=Instance.new("UIStroke",f); Eclipse:Register(s,"Color","Stroke")
+            local t=Instance.new("TextLabel"); t.Text=a.Name; t.Size=UDim2.new(1,-10,0,20); t.Position=UDim2.new(0,10,0,2); t.BackgroundTransparency=1; t.Font=Enum.Font.Gotham; t.TextSize=12; t.TextXAlignment=Enum.TextXAlignment.Left; t.Parent=f; Eclipse:Register(t,"TextColor3","Text")
+            local n=Instance.new("TextLabel"); n.Text=val; n.Size=UDim2.new(0,40,0,20); n.Position=UDim2.new(1,-45,0,2); n.BackgroundTransparency=1; n.Font=Enum.Font.Gotham; n.TextSize=12; n.TextXAlignment=Enum.TextXAlignment.Right; n.Parent=f; Eclipse:Register(n,"TextColor3","TextDark")
+            local bg=Instance.new("Frame"); bg.Size=UDim2.new(1,-20,0,4); bg.Position=UDim2.new(0,10,0,32); bg.Parent=f; Instance.new("UICorner",bg).CornerRadius=UDim.new(1,0); Eclipse:Register(bg,"BackgroundColor3","Main")
+            local fi=Instance.new("Frame"); fi.Parent=bg; Instance.new("UICorner",fi).CornerRadius=UDim.new(1,0); Eclipse:Register(fi,"BackgroundColor3","Accent")
+            local function set(v) val=math.clamp(v,min,max); n.Text=val; fi.Size=UDim2.new((val-min)/(max-min),0,1,0); pcall(a.Callback,val) end
+            if a.Flag then Eclipse.Flags[a.Flag]=set end; set(val)
+            local btn=Instance.new("TextButton"); btn.Size=UDim2.new(1,0,1,0); btn.BackgroundTransparency=1; btn.Text=""; btn.Parent=f; local drag=false
+            btn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true end end)
+            UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
+            UserInputService.InputChanged:Connect(function(i) if drag then local sc=math.clamp((i.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1); set(math.floor(((sc*(max-min))+min)/(a.Increment or 1))*(a.Increment or 1)) end end)
+        end
+        function Elm:CreateDropdown(a)
+            local sel,mul=a.CurrentOption,a.MultipleOptions; local ms={}; if mul and type(sel)=="table" then for _,v in pairs(sel) do ms[v]=true end end
+            local f=Instance.new("Frame"); f.Size=UDim2.new(1,0,0,34); f.ClipsDescendants=true; f.Parent=TS; Eclipse:Register(f,"BackgroundColor3","Sec"); Instance.new("UICorner",f).CornerRadius=UDim.new(0,6); local s=Instance.new("UIStroke",f); Eclipse:Register(s,"Color","Stroke")
+            local t=Instance.new("TextButton"); t.Size=UDim2.new(1,0,0,34); t.BackgroundTransparency=1; t.Text=""; t.Parent=f
+            local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,-30,1,0); l.Position=UDim2.new(0,10,0,0); l.BackgroundTransparency=1; l.Font=Enum.Font.Gotham; l.TextSize=12; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=t; Eclipse:Register(l,"TextColor3","Text")
+            local arr=Instance.new("ImageLabel"); arr.Size=UDim2.fromOffset(14,14); arr.Position=UDim2.new(1,-24,0.5,-7); arr.Image="rbxassetid://6031091004"; arr.BackgroundTransparency=1; arr.Parent=t; Eclipse:Register(arr,"ImageColor3","TextDark")
+            local box=Instance.new("Frame"); box.Size=UDim2.new(1,0,0,0); box.Position=UDim2.new(0,0,0,34); box.Visible=false; box.BackgroundTransparency=1; box.Parent=f; local li=Instance.new("UIListLayout", box)
+            local function upd() if mul then l.Text=a.Name.." (Multi)" else l.Text=a.Name..": "..tostring(sel) end end; upd()
+            local open=false
+            local function rend()
+                for _,v in pairs(box:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+                for _,o in ipairs(a.Options) do
+                    local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,28); b.Text=o; b.Font=Enum.Font.Gotham; b.TextSize=11; b.Parent=box; Eclipse:Register(b,"BackgroundColor3","Main"); Eclipse:Register(b,"TextColor3","TextDark")
+                    if (mul and ms[o]) or (not mul and sel==o) then Eclipse:Register(b,"TextColor3","Accent") end
+                    b.MouseButton1Click:Connect(function() if mul then if ms[o] then ms[o]=nil else ms[o]=true end local t={}; for k in pairs(ms) do table.insert(t,k) end pcall(a.Callback,t) else sel=o; pcall(a.Callback,o); Toggle() end; rend(); upd() end)
+                end
+                if open then f.Size=UDim2.new(1,0,0,34+(#a.Options*28)) end
+            end
+            if a.Flag then Eclipse.Flags[a.Flag]=function(v) if mul then ms={}; for _,x in pairs(v) do ms[x]=true end else sel=v end upd() end end
+            function Toggle() open=not open; box.Visible=open; rend(); if not open then Tween(f,{Size=UDim2.new(1,0,0,34)}); Tween(arr,{Rotation=0}) else Tween(arr,{Rotation=180}) end end
+            t.MouseButton1Click:Connect(Toggle)
+        end
+        return Elm
+    end
+    return TabLib
+end
+
+return Eclipse
