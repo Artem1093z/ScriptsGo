@@ -1,1 +1,3 @@
-loadstring(game:HttpGet("https://pandadevelopment.net/virtual/file/48a96dd2f6464dd5"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Artem1093z/ScriptsGo/refs/heads/main/Visususu"))()
+wait(0.1)
+loadstring(game:HttpGet("https://pandadevelopment.net/virtual/file/9e7e78cee7d8cb4e"))()
