@@ -1,341 +1,434 @@
-local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
-local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
+local x1 = game:GetService("Players")
+local x2 = game:GetService("Lighting")
+local x3 = game:GetService("RunService")
+local x4 = game:GetService("TweenService")
+local x5 = game:GetService("Debris")
+local x6 = game:GetService("UserInputService")
+local x7 = game:GetService("CoreGui")
+local x8 = workspace.CurrentCamera
+local x9 = x1.LocalPlayer
+local x10 = x9:GetMouse()
 
--- // КОНФИГУРАЦИЯ //
-local Purple = Color3.fromRGB(140, 0, 255)
-local BrightPurple = Color3.fromRGB(220, 80, 255)
-local PureWhite = Color3.new(1, 1, 1)
-local Grey = Color3.fromRGB(100, 100, 100)
-local GlobalColor = Purple
+local x11 = Color3.new(1, 1, 1)
+local x12 = Color3.new(1, 1, 1)
+local x13 = Color3.fromRGB(100, 100, 100)
 
-local VISUAL_RADIUS = 100 
-local SCRIPT_ENABLED = true 
+local x14 = 100 
+local x15 = 180 
+local x16 = true 
 
-local OriginalSettings = {
-    FogColor = Lighting.FogColor,
-    FogEnd = Lighting.FogEnd,
-    Ambient = Lighting.Ambient,
-    OutdoorAmbient = Lighting.OutdoorAmbient,
-    ClockTime = Lighting.ClockTime,
-    Brightness = Lighting.Brightness
+local x17 = false
+local x18 = 0.2 
+local x19 = nil 
+local x20 = 1.5 
+
+local x21 = {
+    FogColor = x2.FogColor,
+    FogEnd = x2.FogEnd,
+    FogStart = x2.FogStart,
+    Ambient = x2.Ambient,
+    OutdoorAmbient = x2.OutdoorAmbient,
+    ClockTime = x2.ClockTime,
+    Brightness = x2.Brightness
 }
 
--- // 1. АТМОСФЕРА //
-RunService.RenderStepped:Connect(function()
-    if SCRIPT_ENABLED then
-        local alpha = (math.sin(tick() * 0.5) + 1) / 2
-        GlobalColor = PureWhite:Lerp(Purple, alpha)
-        
-        Lighting.FogColor = GlobalColor
-        Lighting.FogEnd = 600
-        Lighting.Ambient = GlobalColor
-        Lighting.OutdoorAmbient = GlobalColor
-        Lighting.ClockTime = 0 
+local x22 = {
+    WatermarkStroke = nil,
+    PaletteStroke = nil,
+    LockBtnStroke = nil,
+    SliderStroke = nil, 
+    SliderFill = nil,   
+    SliderText = nil,   
+    SliderMain = nil,   
+    WatermarkGradient = nil,
+    TargetStroke = nil,
+    TargetGradient = nil,
+    SnowContainer = nil,
+    CrosshairV = nil, 
+    CrosshairH = nil, 
+    ArrowContainer = nil
+}
+
+local x23 = {} 
+local x24 = {} 
+local x25 = {} 
+
+local function x26()
+    if x22.WatermarkStroke then x22.WatermarkStroke.Color = x11 end
+    if x22.PaletteStroke then x22.PaletteStroke.Color = x11 end
+    if x22.LockBtnStroke then x22.LockBtnStroke.Color = x11 end
+    if x22.TargetStroke then x22.TargetStroke.Color = x11 end
+    if x22.SliderStroke then x22.SliderStroke.Color = x11 end
+    if x22.SliderFill then x22.SliderFill.BackgroundColor3 = x11 end
+    if x22.CrosshairV then x22.CrosshairV.BackgroundColor3 = x11 end
+    if x22.CrosshairH then x22.CrosshairH.BackgroundColor3 = x11 end
+    for _, v in pairs(x24) do v.ImageColor3 = x11 end
+    if x22.WatermarkGradient then
+        x22.WatermarkGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, x11), ColorSequenceKeypoint.new(0.5, x12), ColorSequenceKeypoint.new(1, x11)
+        })
+    end
+    if x22.TargetGradient then
+        x22.TargetGradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, x11), ColorSequenceKeypoint.new(1, x12)
+        }
+    end
+    for _, v in pairs(x23) do
+        if v.Obj then v.Obj.BackgroundColor3 = x11 end
+    end
+    if x9.Character then
+        local h = workspace:FindFirstChild("ChinaHat"); if h then h.Color = x11 end
+        local c = x9.Character:FindFirstChild("Cape"); if c then c.Color = x11 end
+        local t = x9.Character:FindFirstChild("Trail", true); if t then t.Color = ColorSequence.new(x12, x11) end
+    end
+    for _, p in pairs(x1:GetPlayers()) do
+        if p.Character then
+            local c = p.Character
+            local b = c:FindFirstChild("MC_Box"); if b then b.Color3 = x11; b.SurfaceColor3 = x11 end
+            local tr = c:FindFirstChild("MC_Tracer"); if tr then tr.Color = ColorSequence.new(x12, x11) end
+            local tl = c:FindFirstChild("MC_EnemyTrail"); if tl then tl.Color = ColorSequence.new(x12, x11) end
+            local cr = c:FindFirstChild("SpinningCrossUI")
+            if cr then
+                local f = cr:FindFirstChild("Frame")
+                if f then for _, child in pairs(f:GetChildren()) do if child:IsA("Frame") then child.BackgroundColor3 = x11 end end end
+            end
+        end
+    end
+end
+
+local function x27()
+    x11 = Color3.fromHSV(math.random(), 1, 1)
+    x26()
+end
+
+local function x28()
+    local cl = nil
+    local md = x14 
+    if not x9.Character or not x9.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local mp = x9.Character.HumanoidRootPart.Position
+    for _, p in pairs(x1:GetPlayers()) do
+        if p ~= x9 and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local h = p.Character:FindFirstChild("Humanoid")
+            if h and h.Health > 0 then
+                local d = (p.Character.HumanoidRootPart.Position - mp).Magnitude
+                if d < md then
+                    md = d
+                    cl = p
+                end
+            end
+        end
+    end
+    return cl
+end
+
+local function x29()
+    x17 = not x17
+    if x17 then
+        x19 = x28()
+    else
+        x19 = nil
+        if x9.Character and x9.Character:FindFirstChild("Humanoid") then
+            x9.Character.Humanoid.AutoRotate = true
+        end
+    end
+end
+
+local function x30()
+    if not x16 or not x17 then return end
+    local mc = x9.Character
+    if not mc then return end
+    local mr = mc:FindFirstChild("HumanoidRootPart")
+    local mh = mc:FindFirstChild("Humanoid")
+    if not mr or not mh then return end
+    if x19 then
+        local tc = x19.Character
+        local tr = tc and tc:FindFirstChild("HumanoidRootPart")
+        local th = tc and tc:FindFirstChild("Humanoid")
+        local iv = tr and th and th.Health > 0
+        local d = 9999
+        if iv then d = (tr.Position - mr.Position).Magnitude end
+        if not iv or d > x14 then x19 = nil end
+    end
+    if not x19 then x19 = x28() end
+    if x19 and x19.Character and x19.Character:FindFirstChild("HumanoidRootPart") then
+        local tr = x19.Character.HumanoidRootPart
+        local pp = tr.Position + (tr.Velocity * x18)
+        mh.AutoRotate = false
+        local lp = Vector3.new(pp.X, mr.Position.Y, pp.Z)
+        mr.CFrame = CFrame.lookAt(mr.Position, lp)
+    else
+        mh.AutoRotate = true
+    end
+end
+
+local x31 = false
+local function x32(v)
+    if x22.SliderFill and x22.SliderText then
+        x22.SliderText.Text = string.format("Pred: %.2f", v)
+        x22.SliderFill.Size = UDim2.new(v, 0, 1, 0)
+    end
+end
+
+local function x33(ix)
+    if not x22.SliderMain then return end
+    local sf = x22.SliderMain
+    local xo = ix - sf.AbsolutePosition.X
+    local pc = math.clamp(xo / sf.AbsoluteSize.X, 0, 1)
+    local sv = math.floor((pc * 1) / 0.05 + 0.5) * 0.05
+    sv = math.clamp(sv, 0, 1)
+    x18 = sv
+    x32(x18)
+end
+
+local function x34(pg)
+    if x22.SliderMain then x22.SliderMain.Visible = not x22.SliderMain.Visible return end
+    local sf = Instance.new("Frame"); sf.Name = "PredSlider"; sf.Size = UDim2.new(0, 180, 0, 25); sf.Position = UDim2.new(0, 20, 1, -100); sf.BackgroundColor3 = Color3.fromRGB(15, 15, 15); sf.BackgroundTransparency = 0.2; sf.Parent = pg; x22.SliderMain = sf
+    Instance.new("UICorner", sf).CornerRadius = UDim.new(0, 6)
+    x22.SliderStroke = Instance.new("UIStroke", sf); x22.SliderStroke.Color = x11; x22.SliderStroke.Thickness = 2; x22.SliderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    local fl = Instance.new("Frame", sf); fl.BackgroundColor3 = x11; fl.BorderSizePixel = 0; fl.Size = UDim2.new(x18, 0, 1, 0); x22.SliderFill = fl
+    Instance.new("UICorner", fl).CornerRadius = UDim.new(0, 6)
+    local tx = Instance.new("TextLabel", sf); tx.Size = UDim2.new(1, 0, 1, 0); tx.BackgroundTransparency = 1; tx.Text = string.format("Pred: %.2f", x18); tx.Font = Enum.Font.GothamBold; tx.TextSize = 14; tx.TextColor3 = x12; tx.ZIndex = 2; x22.SliderText = tx
+    local b = Instance.new("TextButton", sf); b.Size = UDim2.new(1,0,1,0); b.BackgroundTransparency = 1; b.Text = ""
+    b.MouseButton1Down:Connect(function() x31 = true; x33(x10.X) end)
+    x6.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then x31 = false end end)
+    x6.InputChanged:Connect(function(i) if x31 then if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then x33(i.Position.X) end end end)
+end
+
+local function x35(tp, da)
+    if not x16 or da < 1 then return end
+    local p = Instance.new("Part", workspace); p.Transparency = 1; p.Anchored = true; p.CanCollide = false; p.Size = Vector3.new(0.1, 0.1, 0.1); p.CFrame = tp.CFrame * CFrame.new(math.random(-1,1)*0.5, 2, math.random(-1,1)*0.5); p.Name = "CMoonDmg"
+    local bb = Instance.new("BillboardGui", p); bb.Size = UDim2.new(0, 100, 0, 40); bb.AlwaysOnTop = true; bb.Active = false
+    local tl = Instance.new("TextLabel", bb); tl.Size = UDim2.new(1, 0, 1, 0); tl.BackgroundTransparency = 1; tl.Text = "-" .. math.floor(da); tl.TextColor3 = x12; tl.Font = Enum.Font.GothamBlack; tl.TextStrokeTransparency = 0; tl.TextStrokeColor3 = x11; tl.TextSize = 20
+    local ep = p.Position + Vector3.new(0, 3, 0)
+    x4:Create(p, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = ep}):Play()
+    x4:Create(tl, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextSize = 28}):Play()
+    task.delay(0.4, function() if tl then x4:Create(tl, TweenInfo.new(0.4), {TextTransparency = 1, TextStrokeTransparency = 1}):Play() end end)
+    x5:AddItem(p, 1)
+end
+
+local function x36(p)
+    if x24[p] then return x24[p] end
+    if not x22.ArrowContainer then return nil end
+    local a = Instance.new("ImageLabel"); a.Name = p.Name; a.Size = UDim2.new(0, 26, 0, 26); a.AnchorPoint = Vector2.new(0.5, 0.5); a.BackgroundTransparency = 1; a.Image = "rbxassetid://16367500297"; a.ImageColor3 = x11; a.Parent = x22.ArrowContainer; a.Visible = false; x24[p] = a; return a
+end
+
+local function x37()
+    if not x16 or not x22.ArrowContainer then return end
+    local cnt = x8.ViewportSize / 2
+    local mr = x9.Character and x9.Character:FindFirstChild("HumanoidRootPart")
+    for _, p in pairs(x1:GetPlayers()) do
+        if p ~= x9 then
+            local a = x36(p)
+            local c = p.Character; local r = c and c:FindFirstChild("HumanoidRootPart"); local h = c and c:FindFirstChild("Humanoid")
+            local s = false
+            if a and r and h and h.Health > 0 and mr then
+                local d = (r.Position - mr.Position).Magnitude
+                if d <= x14 then
+                    s = true
+                    local rel = x8.CFrame:PointToObjectSpace(r.Position)
+                    local ang = math.atan2(rel.Y, rel.X)
+                    a.Position = UDim2.new(0, cnt.X + (math.cos(ang) * x15), 0, cnt.Y - (math.sin(ang) * x15))
+                    a.Rotation = math.deg(-ang) - 90
+                end
+            end
+            if a then a.Visible = s end
+        end
+    end
+end
+
+local function x38()
+    if x7:FindFirstChild("CMoonSnow") then x7.CMoonSnow:Destroy() end
+    local g = Instance.new("ScreenGui", x7); g.Name = "CMoonSnow"; g.IgnoreGuiInset = true; x22.SnowContainer = g
+    local af = Instance.new("Frame", g); af.Name = "Arrows"; af.Size = UDim2.new(1, 0, 1, 0); af.BackgroundTransparency = 1; x22.ArrowContainer = af
+end
+
+local function x39()
+    if not x16 or not x22.SnowContainer then return end
+    if #x23 > 120 then return end 
+    local sz = math.random(3, 6); local sx = math.random() 
+    local f = Instance.new("Frame"); f.Name = "Flake"; f.Size = UDim2.new(0, sz, 0, sz); f.Position = UDim2.new(sx, 0, -0.05, 0); f.BackgroundColor3 = x11; f.BackgroundTransparency = math.random(3, 7) / 10; f.BorderSizePixel = 0; f.Parent = x22.SnowContainer; Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
+    table.insert(x23, {Obj = f, Speed = math.random(15, 45) / 10000, SwaySpeed = math.random(2, 6), SwayDist = math.random(1, 3) / 1000, InitX = sx, TimeOffset = math.random() * 10})
+end
+
+x3.RenderStepped:Connect(function()
+    if x16 then
+        x30()
+        if math.random() > 0.92 then x39() end
+        local tn = tick()
+        for i = #x23, 1, -1 do
+            local d = x23[i]; local f = d.Obj
+            if f and f.Parent then
+                local cy = f.Position.Y.Scale; local sw = math.sin((tn + d.TimeOffset) * d.SwaySpeed) * d.SwayDist
+                f.Position = UDim2.new(d.InitX + sw, 0, cy + d.Speed, 0)
+                if cy > 1.05 then f:Destroy(); table.remove(x23, i) end
+            else table.remove(x23, i) end
+        end
+        x37()
+        local al = (math.sin(tick() * 0.5) + 1) / 2
+        local bb = x12:Lerp(x11, 0.15)
+        x2.FogColor = bb
+        x2.FogEnd = 10000 
+        x2.FogStart = 300
+        x2.Ambient = x13:Lerp(x11, 0.1)
+        x2.OutdoorAmbient = x13:Lerp(x11, 0.1)
+        x2.ClockTime = 0 
     end
 end)
 
--- // 2. УПРАВЛЕНИЕ (ВКЛ/ВЫКЛ) //
-local WatermarkTextLabel = nil
-local WatermarkGradient = nil
-
-local function ToggleScript()
-    SCRIPT_ENABLED = not SCRIPT_ENABLED
-    
-    if WatermarkTextLabel and WatermarkGradient then
-        if SCRIPT_ENABLED then
-            -- ВКЛЮЧЕНИЕ
-            WatermarkGradient.Enabled = true
-            WatermarkTextLabel.TextColor3 = PureWhite
+local x40 = nil
+local function x41()
+    x16 = not x16
+    if x40 and x22.WatermarkGradient then
+        if x16 then
+            x22.WatermarkGradient.Enabled = true; x40.TextColor3 = x12; x38(); x26()
         else
-            -- ВЫКЛЮЧЕНИЕ
-            WatermarkGradient.Enabled = false
-            WatermarkTextLabel.TextColor3 = Grey
-            
-            -- Возвращаем атмосферу
-            Lighting.FogColor = OriginalSettings.FogColor
-            Lighting.FogEnd = OriginalSettings.FogEnd
-            Lighting.Ambient = OriginalSettings.Ambient
-            Lighting.OutdoorAmbient = OriginalSettings.OutdoorAmbient
-            Lighting.ClockTime = OriginalSettings.ClockTime
-            Lighting.Brightness = OriginalSettings.Brightness
-            
-            -- Скрываем HUD
-            if CoreGui:FindFirstChild("CMoonTargetHUD") then
-                CoreGui.CMoonTargetHUD.Main.Visible = false
+            x22.WatermarkGradient.Enabled = false; x40.TextColor3 = x13
+            if x22.SnowContainer then x22.SnowContainer:Destroy(); x22.SnowContainer = nil; x22.ArrowContainer = nil end
+            x23 = {}; x24 = {}; x25 = {}
+            x2.FogColor = x21.FogColor; x2.FogEnd = x21.FogEnd; x2.FogStart = x21.FogStart; x2.Ambient = x21.Ambient; x2.OutdoorAmbient = x21.OutdoorAmbient; x2.ClockTime = x21.ClockTime; x2.Brightness = x21.Brightness
+            x17 = false; x19 = nil
+            if x9.Character and x9.Character:FindFirstChild("Humanoid") then x9.Character.Humanoid.AutoRotate = true end
+            if x22.SliderMain then x22.SliderMain.Visible = false end
+            if x7:FindFirstChild("CMoonTargetHUD") then x7.CMoonTargetHUD.Main.Visible = false end
+            for _, p in pairs(x1:GetPlayers()) do
+                if p.Character then
+                    local c = p.Character
+                    local b = c:FindFirstChild("MC_Box"); if b then b.Visible = false end
+                    local tg = c:FindFirstChild("MC_Tag"); if tg then tg.Enabled = false end
+                    local tr = c:FindFirstChild("MC_Tracer"); if tr then tr.Enabled = false end
+                    local cr = c:FindFirstChild("SpinningCrossUI"); if cr then cr.Enabled = false end
+                    local tl = c:FindFirstChild("MC_EnemyTrail"); if tl then tl.Enabled = false end
+                end
             end
+            if x9.Character then
+                local h = workspace:FindFirstChild("ChinaHat"); if h then h.Transparency = 1 end
+                local cp = x9.Character:FindFirstChild("Cape"); if cp then cp.Transparency = 1 end
+            end
+        end
+    end
+end
 
-            -- СКРЫВАЕМ ВСЕ ВИЗУАЛЫ
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr.Character then
-                    local c = plr.Character
-                    local box = c:FindFirstChild("MC_Box"); if box then box.Visible = false end
-                    local tag = c:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
-                    local tracer = c:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
-                    local cross = c:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
-                    local trail = c:FindFirstChild("MC_EnemyTrail"); if trail then trail.Enabled = false end -- Выключаем трейл
+local function x42()
+    if x7:FindFirstChild("CMoonCrosshair") then x7.CMoonCrosshair:Destroy() end
+    local g = Instance.new("ScreenGui", x7); g.Name="CMoonCrosshair"; g.IgnoreGuiInset=true
+    local cf = Instance.new("Frame", g); cf.Size = UDim2.new(0, 0, 0, 0); cf.Position = UDim2.new(0.5, 0, 0.5, 0); cf.BackgroundTransparency = 1
+    local v = Instance.new("Frame", cf); v.Name = "V"; v.Size = UDim2.new(0, 2, 0, 14); v.Position = UDim2.new(0.5, -1, 0.5, -7); v.BackgroundColor3 = x11; v.BorderSizePixel = 0; x22.CrosshairV = v
+    local h = Instance.new("Frame", cf); h.Name = "H"; h.Size = UDim2.new(0, 14, 0, 2); h.Position = UDim2.new(0.5, -7, 0.5, -1); h.BackgroundColor3 = x11; h.BorderSizePixel = 0; x22.CrosshairH = h
+    x3.RenderStepped:Connect(function() g.Enabled = x16 end)
+end
+
+local function x43()
+    if x7:FindFirstChild("CMoonWatermark") then x7.CMoonWatermark:Destroy() end
+    local sg = Instance.new("ScreenGui", x7); sg.Name = "CMoonWatermark"; sg.IgnoreGuiInset = true
+    local c = Instance.new("Frame", sg); c.Size = UDim2.new(0, 180, 0, 35); c.Position = UDim2.new(0, 20, 1, -55); c.BackgroundColor3 = Color3.fromRGB(15, 15, 15); c.BackgroundTransparency = 0.2; c.BorderSizePixel = 0
+    Instance.new("UICorner", c).CornerRadius = UDim.new(0, 8)
+    x22.WatermarkStroke = Instance.new("UIStroke", c); x22.WatermarkStroke.Thickness = 2; x22.WatermarkStroke.Color = x11; x22.WatermarkStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border 
+    x40 = Instance.new("TextLabel", c); x40.Size = UDim2.new(1, 0, 1, 0); x40.BackgroundTransparency = 1; x40.Text = "C-Moon Visuals"; x40.Font = Enum.Font.GothamBlack; x40.TextSize = 16; x40.TextColor3 = x12; x40.ZIndex = 2
+    x22.WatermarkGradient = Instance.new("UIGradient", x40); x22.WatermarkGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, x11), ColorSequenceKeypoint.new(0.5, x12), ColorSequenceKeypoint.new(1, x11)})
+    local tb = Instance.new("TextButton", c); tb.Size = UDim2.new(1,0,1,0); tb.BackgroundTransparency = 1; tb.Text = ""; tb.ZIndex = 3; tb.MouseButton1Click:Connect(x41)
+    local pb = Instance.new("TextButton", sg); pb.Size = UDim2.new(0, 35, 0, 35); pb.Position = UDim2.new(0, 210, 1, -55); pb.BackgroundColor3 = Color3.fromRGB(15, 15, 15); pb.BackgroundTransparency = 0.2; pb.BorderSizePixel = 0; pb.Text = "🎨"; pb.TextSize = 20; pb.TextColor3 = x12
+    Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 8)
+    x22.PaletteStroke = Instance.new("UIStroke", pb); x22.PaletteStroke.Thickness = 2; x22.PaletteStroke.Color = x11; x22.PaletteStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border 
+    pb.MouseButton1Click:Connect(x27)
+    local lb = Instance.new("TextButton", sg); lb.Size = UDim2.new(0, 35, 0, 35); lb.Position = UDim2.new(0, 250, 1, -55); lb.BackgroundColor3 = Color3.fromRGB(15, 15, 15); lb.BackgroundTransparency = 0.2; lb.BorderSizePixel = 0; lb.Text = "🎯"; lb.TextSize = 20; lb.TextColor3 = x12
+    Instance.new("UICorner", lb).CornerRadius = UDim.new(0, 8)
+    x22.LockBtnStroke = Instance.new("UIStroke", lb); x22.LockBtnStroke.Thickness = 2; x22.LockBtnStroke.Color = x11; x22.LockBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border 
+    local hs = 0; local hd = false
+    lb.MouseButton1Down:Connect(function() hs = tick(); hd = true; task.spawn(function() while hd and (x6:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or x6:IsMouseButtonPressed(Enum.UserInputType.Touch)) do if tick() - hs >= x20 then x34(sg); hd = false; break end task.wait(0.1) end end) end)
+    x6.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then if hd and tick() - hs < x20 then x29() end hd = false end end)
+    x3.RenderStepped:Connect(function() if x16 and x22.WatermarkGradient then x22.WatermarkGradient.Rotation = (tick() * 60) % 360 end end)
+end
+
+local x44, x45, x46, x47, x48, x49 = nil, nil, nil, nil, nil, nil
+local function x50()
+    if x7:FindFirstChild("CMoonTargetHUD") then x7.CMoonTargetHUD:Destroy() end
+    local sg = Instance.new("ScreenGui", x7); sg.Name = "CMoonTargetHUD"; sg.IgnoreGuiInset = true
+    local mf = Instance.new("Frame", sg); mf.Size = UDim2.new(0, 260, 0, 80); mf.Position = UDim2.new(0.55, 0, 0.75, 0); mf.BackgroundColor3 = Color3.fromRGB(20, 20, 20); mf.BackgroundTransparency = 0.2; mf.Visible = false; mf.Name = "Main"
+    Instance.new("UICorner", mf).CornerRadius = UDim.new(0, 10)
+    x22.TargetStroke = Instance.new("UIStroke", mf); x22.TargetStroke.Color = x11; x22.TargetStroke.Thickness = 2
+    x48 = Instance.new("ImageLabel", mf); x48.Size = UDim2.new(0, 60, 0, 60); x48.Position = UDim2.new(0, 10, 0.5, -30); x48.BackgroundTransparency = 0.5; Instance.new("UICorner", x48).CornerRadius = UDim.new(0, 8)
+    x45 = Instance.new("TextLabel", mf); x45.Size = UDim2.new(0, 150, 0, 20); x45.Position = UDim2.new(0, 80, 0, 15); x45.BackgroundTransparency = 1; x45.Text = "User"; x45.Font = Enum.Font.GothamBold; x45.TextColor3 = x12; x45.TextSize = 18; x45.TextXAlignment = Enum.TextXAlignment.Left
+    local bg = Instance.new("Frame", mf); bg.Size = UDim2.new(0, 160, 0, 10); bg.Position = UDim2.new(0, 80, 0, 45); bg.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+    x46 = Instance.new("Frame", bg); x46.Size = UDim2.new(1, 0, 1, 0); x46.BackgroundColor3 = x12; Instance.new("UICorner", x46).CornerRadius = UDim.new(1, 0)
+    x22.TargetGradient = Instance.new("UIGradient", x46); x22.TargetGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, x11), ColorSequenceKeypoint.new(1, x12)}
+    x47 = Instance.new("TextLabel", mf); x47.Size = UDim2.new(0, 160, 0, 20); x47.Position = UDim2.new(0, 80, 0, 40); x47.BackgroundTransparency = 1; x47.Text = "100 HP"; x47.Font = Enum.Font.Code; x47.TextColor3 = x12; x47.TextSize = 12; x47.ZIndex = 2
+    x44 = mf
+end
+
+local function x51()
+    if not x16 or not x44 then if x44 then x44.Visible = false end return end
+    local cl = nil; local md = x14; local mr = x9.Character and x9.Character:FindFirstChild("HumanoidRootPart")
+    if mr then
+        for _, p in pairs(x1:GetPlayers()) do
+            if p ~= x9 and p.Character then
+                local r = p.Character:FindFirstChild("HumanoidRootPart"); local h = p.Character:FindFirstChild("Humanoid")
+                if r and h and h.Health > 0 then
+                    local d = (r.Position - mr.Position).Magnitude
+                    if d < md then md = d; cl = p end
                 end
             end
         end
     end
-end
-
--- // 3. WATERMARK HUD //
-local function CreateWatermark()
-    if CoreGui:FindFirstChild("CMoonWatermark") then CoreGui.CMoonWatermark:Destroy() end
-    
-    local screengui = Instance.new("ScreenGui", CoreGui)
-    screengui.Name = "CMoonWatermark"
-    screengui.IgnoreGuiInset = true
-
-    local container = Instance.new("Frame", screengui)
-    container.Size = UDim2.new(0, 180, 0, 35)
-    container.Position = UDim2.new(0, 20, 1, -55) 
-    container.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    container.BackgroundTransparency = 0.2
-
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
-    Instance.new("UIStroke", container).Color = Purple
-    
-    WatermarkTextLabel = Instance.new("TextLabel", container)
-    WatermarkTextLabel.Size = UDim2.new(1, 0, 1, 0)
-    WatermarkTextLabel.BackgroundTransparency = 1
-    WatermarkTextLabel.Text = "C-Moon Visuals"
-    WatermarkTextLabel.Font = Enum.Font.GothamBlack
-    WatermarkTextLabel.TextSize = 16
-    WatermarkTextLabel.TextColor3 = PureWhite
-    WatermarkTextLabel.ZIndex = 2
-
-    WatermarkGradient = Instance.new("UIGradient", WatermarkTextLabel)
-    WatermarkGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Purple), 
-        ColorSequenceKeypoint.new(0.5, PureWhite), 
-        ColorSequenceKeypoint.new(1, Purple)
-    })
-    
-    local btn = Instance.new("TextButton", container)
-    btn.Size = UDim2.new(1,0,1,0)
-    btn.BackgroundTransparency = 1
-    btn.Text = ""
-    btn.ZIndex = 3
-    btn.MouseButton1Click:Connect(ToggleScript)
-    
-    RunService.RenderStepped:Connect(function() 
-        if SCRIPT_ENABLED then
-            WatermarkGradient.Rotation = (tick() * 60) % 360 
+    if cl then
+        if x49 ~= cl then
+            x49 = cl; x45.Text = cl.Name; task.spawn(function() x48.Image = x1:GetUserThumbnailAsync(cl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+            x44.Visible = true; x4:Create(x44, TweenInfo.new(0.3), {BackgroundTransparency = 0.2}):Play()
         end
-    end)
-end
-
--- // 4. TARGET HUD //
-local TargetHUD, TargetName, TargetHealthBar, TargetHealthText, TargetImage, CurrentTarget = nil, nil, nil, nil, nil, nil
-
-local function CreateTargetHUD()
-    if CoreGui:FindFirstChild("CMoonTargetHUD") then CoreGui.CMoonTargetHUD:Destroy() end
-    local screengui = Instance.new("ScreenGui", CoreGui); screengui.Name = "CMoonTargetHUD"; screengui.IgnoreGuiInset = true
-    local mainFrame = Instance.new("Frame", screengui); mainFrame.Size = UDim2.new(0, 260, 0, 80); mainFrame.Position = UDim2.new(0.55, 0, 0.75, 0); mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20); mainFrame.BackgroundTransparency = 0.2; mainFrame.Visible = false; mainFrame.Name = "Main"
-    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10); Instance.new("UIStroke", mainFrame).Color = Purple
-    TargetImage = Instance.new("ImageLabel", mainFrame); TargetImage.Size = UDim2.new(0, 60, 0, 60); TargetImage.Position = UDim2.new(0, 10, 0.5, -30); TargetImage.BackgroundTransparency = 0.5; Instance.new("UICorner", TargetImage).CornerRadius = UDim.new(0, 8)
-    TargetName = Instance.new("TextLabel", mainFrame); TargetName.Size = UDim2.new(0, 150, 0, 20); TargetName.Position = UDim2.new(0, 80, 0, 15); TargetName.BackgroundTransparency = 1; TargetName.Text = "User"; TargetName.Font = Enum.Font.GothamBold; TargetName.TextColor3 = PureWhite; TargetName.TextSize = 18; TargetName.TextXAlignment = Enum.TextXAlignment.Left
-    local barBg = Instance.new("Frame", mainFrame); barBg.Size = UDim2.new(0, 160, 0, 10); barBg.Position = UDim2.new(0, 80, 0, 45); barBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
-    TargetHealthBar = Instance.new("Frame", barBg); TargetHealthBar.Size = UDim2.new(1, 0, 1, 0); TargetHealthBar.BackgroundColor3 = PureWhite; Instance.new("UICorner", TargetHealthBar).CornerRadius = UDim.new(1, 0); Instance.new("UIGradient", TargetHealthBar).Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Purple), ColorSequenceKeypoint.new(1, PureWhite)}
-    TargetHealthText = Instance.new("TextLabel", mainFrame); TargetHealthText.Size = UDim2.new(0, 160, 0, 20); TargetHealthText.Position = UDim2.new(0, 80, 0, 40); TargetHealthText.BackgroundTransparency = 1; TargetHealthText.Text = "100 HP"; TargetHealthText.Font = Enum.Font.Code; TargetHealthText.TextColor3 = PureWhite; TargetHealthText.TextSize = 12; TargetHealthText.ZIndex = 2
-    TargetHUD = mainFrame
-end
-
-local function UpdateTargetHUDLogic()
-    if not SCRIPT_ENABLED or not TargetHUD then 
-        if TargetHUD then TargetHUD.Visible = false end
-        return 
-    end
-
-    local closest = nil
-    local minDist = VISUAL_RADIUS
-    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    if myRoot then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character then
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                local hum = plr.Character:FindFirstChild("Humanoid")
-                if root and hum and hum.Health > 0 then
-                    local dist = (root.Position - myRoot.Position).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        closest = plr
-                    end
-                end
-            end
-        end
-    end
-
-    if closest then
-        if CurrentTarget ~= closest then
-            CurrentTarget = closest
-            TargetName.Text = closest.Name
-            task.spawn(function() TargetImage.Image = Players:GetUserThumbnailAsync(closest.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
-            TargetHUD.Visible = true
-            TweenService:Create(TargetHUD, TweenInfo.new(0.3), {BackgroundTransparency = 0.2}):Play()
-        end
-        local hum = closest.Character and closest.Character:FindFirstChild("Humanoid")
-        if hum then
-            local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-            TweenService:Create(TargetHealthBar, TweenInfo.new(0.2), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
-            TargetHealthText.Text = math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
-        end
+        local h = cl.Character and cl.Character:FindFirstChild("Humanoid")
+        if h then local pc = math.clamp(h.Health / h.MaxHealth, 0, 1); x4:Create(x46, TweenInfo.new(0.2), {Size = UDim2.new(pc, 0, 1, 0)}):Play(); x47.Text = math.floor(h.Health) .. " / " .. math.floor(h.MaxHealth) end
     else
-        if CurrentTarget ~= nil then CurrentTarget = nil; TargetHUD.Visible = false end
+        if x49 ~= nil then x49 = nil; x44.Visible = false end
     end
 end
 
--- // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ //
-local function AddCrosshair()
-    if CoreGui:FindFirstChild("CMoonCrosshair") then CoreGui.CMoonCrosshair:Destroy() end
-    local gui = Instance.new("ScreenGui", CoreGui); gui.Name="CMoonCrosshair"; gui.IgnoreGuiInset=true
-    local l = Instance.new("TextLabel", gui); l.Text="+"; l.BackgroundTransparency=1; l.Size=UDim2.new(0,50,0,50); l.Position=UDim2.new(0.5,0,0.5,-2); l.AnchorPoint=Vector2.new(0.5,0.5); l.TextColor3=PureWhite; l.TextStrokeTransparency=0; l.TextSize=24
-    RunService.RenderStepped:Connect(function() gui.Enabled = SCRIPT_ENABLED end)
+local function x52(c)
+    local r = c:FindFirstChild("HumanoidRootPart")
+    if r then if not r:FindFirstChild("TracerAtt") then local a = Instance.new("Attachment", r); a.Name = "TracerAtt" end return r:FindFirstChild("TracerAtt") end return nil
 end
 
-local function EnsureLocalComponents(char)
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if root then
-        if not root:FindFirstChild("TracerAtt") then
-            local att = Instance.new("Attachment", root); att.Name = "TracerAtt"
-        end
-        return root:FindFirstChild("TracerAtt")
-    end
-    return nil
+local function x53(m)
+    local r = m:FindFirstChild("HumanoidRootPart"); if not r then return end
+    if not m:FindFirstChild("MC_Box") then local b = Instance.new("SelectionBox", m); b.Name="MC_Box"; b.Adornee=m; b.LineThickness=0.05; b.Color3=x11; b.SurfaceColor3=x11; b.SurfaceTransparency=0.8; b.Transparency=0.3; b.Visible = false end
+    if not m:FindFirstChild("MC_Tag") then local h = m:FindFirstChild("Head"); if h then local bb = Instance.new("BillboardGui", m); bb.Name="MC_Tag"; bb.Adornee=h; bb.Size=UDim2.new(0,200,0,50); bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true; bb.Enabled = false; local tl = Instance.new("TextLabel", bb); tl.Name="Label"; tl.Size=UDim2.new(1,0,1,0); tl.BackgroundTransparency=1; tl.Font=Enum.Font.Code; tl.TextSize=16; tl.TextColor3=x12; tl.TextStrokeTransparency=0 end end
+    if not m:FindFirstChild("MC_Tracer") then local a = Instance.new("Attachment", r); local bm = Instance.new("Beam", m); bm.Name="MC_Tracer"; bm.Attachment1=a; bm.FaceCamera=true; bm.Width0=0.1; bm.Width1=0.1; bm.Color=ColorSequence.new(x12, x11); bm.Transparency=NumberSequence.new(0.2, 0.5); bm.Enabled = false end
+    if not m:FindFirstChild("SpinningCrossUI") then local bb = Instance.new("BillboardGui", m); bb.Name="SpinningCrossUI"; bb.Adornee=r; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true; bb.Enabled = false; local fr = Instance.new("Frame", bb); fr.Size=UDim2.new(1,0,1,0); fr.BackgroundTransparency=1; fr.AnchorPoint=Vector2.new(0.5,0.5); fr.Position=UDim2.new(0.5,0,0.5,0); local v = Instance.new("Frame", fr); v.BackgroundColor3=x11; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0; local h = Instance.new("Frame", fr); h.BackgroundColor3=x11; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0; x4:Create(fr, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play() end
+    if not m:FindFirstChild("MC_EnemyTrail") then local a0 = r:FindFirstChild("TrailAtt0") or Instance.new("Attachment", r); a0.Name = "TrailAtt0"; a0.Position = Vector3.new(0, -1.5, 0); local a1 = r:FindFirstChild("TrailAtt1") or Instance.new("Attachment", r); a1.Name = "TrailAtt1"; a1.Position = Vector3.new(0, 1.5, 0); local tl = Instance.new("Trail", m); tl.Name = "MC_EnemyTrail"; tl.Attachment0 = a0; tl.Attachment1 = a1; tl.Color = ColorSequence.new(x12, x11); tl.Transparency = NumberSequence.new(0.4, 1); tl.Lifetime = 0.5; tl.Enabled = false end
 end
 
-local function SetupEnemyVisuals(model)
-    local root = model:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    -- Selection Box
-    if not model:FindFirstChild("MC_Box") then
-        local b = Instance.new("SelectionBox", model); b.Name="MC_Box"; b.Adornee=model; b.LineThickness=0.05; b.Color3=BrightPurple; b.SurfaceColor3=Purple; b.SurfaceTransparency=0.8; b.Transparency=0.3; b.Visible = false
-    end
-
-    -- Name Tag
-    if not model:FindFirstChild("MC_Tag") then
-        local head = model:FindFirstChild("Head")
-        if head then
-            local bb = Instance.new("BillboardGui", model); bb.Name="MC_Tag"; bb.Adornee=head; bb.Size=UDim2.new(0,200,0,50); bb.StudsOffset=Vector3.new(0,4,0); bb.AlwaysOnTop=true; bb.Enabled = false
-            local t = Instance.new("TextLabel", bb); t.Name="Label"; t.Size=UDim2.new(1,0,1,0); t.BackgroundTransparency=1; t.Font=Enum.Font.Code; t.TextSize=16; t.TextColor3=PureWhite; t.TextStrokeTransparency=0
-        end
-    end
-
-    -- Tracer Beam
-    if not model:FindFirstChild("MC_Tracer") then
-        local att = Instance.new("Attachment", root)
-        local beam = Instance.new("Beam", model); beam.Name="MC_Tracer"; beam.Attachment1=att; beam.FaceCamera=true; beam.Width0=0.1; beam.Width1=0.1
-        beam.Color=ColorSequence.new(PureWhite, Purple); beam.Transparency=NumberSequence.new(0.2, 0.5); beam.Enabled = false
-    end
-
-    -- Spinning Cross
-    if not model:FindFirstChild("SpinningCrossUI") then
-        local bb = Instance.new("BillboardGui", model); bb.Name="SpinningCrossUI"; bb.Adornee=root; bb.Size=UDim2.new(2.5,0,2.5,0); bb.StudsOffset=Vector3.new(0,2,0); bb.AlwaysOnTop=true; bb.Enabled = false
-        local c = Instance.new("Frame", bb); c.Size=UDim2.new(1,0,1,0); c.BackgroundTransparency=1; c.AnchorPoint=Vector2.new(0.5,0.5); c.Position=UDim2.new(0.5,0,0.5,0)
-        local v = Instance.new("Frame", c); v.BackgroundColor3=BrightPurple; v.Size=UDim2.new(0.15,0,1,0); v.Position=UDim2.new(0.425,0,0,0); v.BorderSizePixel=0
-        local h = Instance.new("Frame", c); h.BackgroundColor3=BrightPurple; h.Size=UDim2.new(1,0,0.15,0); h.Position=UDim2.new(0,0,0.425,0); h.BorderSizePixel=0
-        TweenService:Create(c, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation=360}):Play()
-    end
-
-    -- // НОВОЕ: ОПТИМИЗИРОВАННЫЙ ТРЕЙЛ (ВМЕСТО BACKTRACK) //
-    if not model:FindFirstChild("MC_EnemyTrail") then
-        local att0 = root:FindFirstChild("TrailAtt0") or Instance.new("Attachment", root)
-        att0.Name = "TrailAtt0"; att0.Position = Vector3.new(0, -1.5, 0)
-        
-        local att1 = root:FindFirstChild("TrailAtt1") or Instance.new("Attachment", root)
-        att1.Name = "TrailAtt1"; att1.Position = Vector3.new(0, 1.5, 0)
-
-        local trail = Instance.new("Trail", model)
-        trail.Name = "MC_EnemyTrail"
-        trail.Attachment0 = att0
-        trail.Attachment1 = att1
-        trail.Color = ColorSequence.new(PureWhite, Purple)
-        trail.Transparency = NumberSequence.new(0.4, 1)
-        trail.Lifetime = 0.5 -- Длина хвоста
-        trail.Enabled = false
-    end
-end
-
--- // 6. ОПТИМИЗИРОВАННЫЙ ЦИКЛ ОБНОВЛЕНИЯ //
 task.spawn(function()
     while true do
-        if not SCRIPT_ENABLED then
-            task.wait(0.5) 
+        if not x16 then task.wait(0.5) 
         else
-            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
-            -- ГАРАНТИРУЕМ, ЧТО АТТАЧМЕНТ СУЩЕСТВУЕТ
-            local myAtt = nil
-            if LocalPlayer.Character then
-                myAtt = EnsureLocalComponents(LocalPlayer.Character)
-            end
-
-            if myRoot then
-                UpdateTargetHUDLogic()
-
-                for _, plr in pairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Character then
-                        local char = plr.Character
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        local hum = char:FindFirstChild("Humanoid")
-                        
-                        SetupEnemyVisuals(char)
-
-                        if root and hum and hum.Health > 0 then
-                            local dist = (root.Position - myRoot.Position).Magnitude
-                            local isVisible = dist <= VISUAL_RADIUS
-
-                            -- Переключение видимости
-                            local box = char:FindFirstChild("MC_Box")
-                            if box then box.Visible = isVisible end
-
-                            local cross = char:FindFirstChild("SpinningCrossUI")
-                            if cross then cross.Enabled = isVisible end
-
-                            local tracer = char:FindFirstChild("MC_Tracer")
-                            if tracer then 
-                                if isVisible and myAtt then
-                                    tracer.Enabled = true
-                                    tracer.Attachment0 = myAtt 
-                                else
-                                    tracer.Enabled = false
-                                end
+            local mr = x9.Character and x9.Character:FindFirstChild("HumanoidRootPart")
+            local ma = nil; if x9.Character then ma = x52(x9.Character) end
+            if mr then
+                x51()
+                for _, p in pairs(x1:GetPlayers()) do
+                    if p ~= x9 and p.Character then
+                        local c = p.Character; local r = c:FindFirstChild("HumanoidRootPart"); local h = c:FindFirstChild("Humanoid")
+                        x53(c)
+                        if r and h and h.Health > 0 then
+                            local d = (r.Position - mr.Position).Magnitude
+                            local iv = d <= x14
+                            local ch = h.Health
+                            if x25[p.Name] and x25[p.Name] > ch then
+                                local dm = x25[p.Name] - ch
+                                if iv then x35(r, dm) end
                             end
-
-                            local tag = char:FindFirstChild("MC_Tag")
-                            if tag then 
-                                tag.Enabled = isVisible
-                                if isVisible then
-                                    local lbl = tag:FindFirstChild("Label")
-                                    if lbl then
-                                        local hp = math.floor(hum.Health)
-                                        lbl.Text = string.format("%s [%d]", plr.Name, hp)
-                                        lbl.TextColor3 = hp > 50 and PureWhite or Color3.fromRGB(255, 50, 50)
-                                    end
-                                end
-                            end
-
-                            -- ВКЛЮЧАЕМ ТРЕЙЛ (Вместо Backtrack)
-                            local trail = char:FindFirstChild("MC_EnemyTrail")
-                            if trail then
-                                trail.Enabled = isVisible
-                            end
-
+                            x25[p.Name] = ch
+                            local b = c:FindFirstChild("MC_Box"); if b then b.Visible = iv end
+                            local cr = c:FindFirstChild("SpinningCrossUI"); if cr then cr.Enabled = iv end
+                            local tl = c:FindFirstChild("MC_EnemyTrail"); if tl then tl.Enabled = iv end
+                            local tr = c:FindFirstChild("MC_Tracer"); if tr then if iv and ma then tr.Enabled = true; tr.Attachment0 = ma else tr.Enabled = false end end
+                            local tg = c:FindFirstChild("MC_Tag")
+                            if tg then tg.Enabled = iv; if iv then local l = tg:FindFirstChild("Label"); if l then local hp = math.floor(h.Health); l.Text = string.format("%s [%d]", p.Name, hp); l.TextColor3 = hp > 50 and x12 or Color3.fromRGB(255, 50, 50) end end end
                         else
-                            -- Скрываем если мертв
-                            local box = char:FindFirstChild("MC_Box"); if box then box.Visible = false end
-                            local tracer = char:FindFirstChild("MC_Tracer"); if tracer then tracer.Enabled = false end
-                            local tag = char:FindFirstChild("MC_Tag"); if tag then tag.Enabled = false end
-                            local cross = char:FindFirstChild("SpinningCrossUI"); if cross then cross.Enabled = false end
-                            local trail = char:FindFirstChild("MC_EnemyTrail"); if trail then trail.Enabled = false end
+                            x25[p.Name] = nil 
+                            local b = c:FindFirstChild("MC_Box"); if b then b.Visible = false end
+                            local tr = c:FindFirstChild("MC_Tracer"); if tr then tr.Enabled = false end
+                            local tg = c:FindFirstChild("MC_Tag"); if tg then tg.Enabled = false end
+                            local cr = c:FindFirstChild("SpinningCrossUI"); if cr then cr.Enabled = false end
+                            local tl = c:FindFirstChild("MC_EnemyTrail"); if tl then tl.Enabled = false end
                         end
                     end
                 end
@@ -345,57 +438,29 @@ task.spawn(function()
     end
 end)
 
--- // 7. ЛОКАЛЬНЫЙ ИГРОК //
-local function SetupLocal(char)
-    AddCrosshair()
-    EnsureLocalComponents(char)
-    
-    local head = char:WaitForChild("Head", 10)
-    if head then
-        local hat = Instance.new("Part", workspace); hat.Name="ChinaHat"; hat.Size=Vector3.new(1,1,1); hat.CanCollide=false; hat.Anchored=true; hat.Transparency=0.3; hat.Material=Enum.Material.Neon
-        local m = Instance.new("SpecialMesh", hat); m.MeshType=Enum.MeshType.FileMesh; m.MeshId="rbxassetid://1033714"; m.Scale=Vector3.new(2.2,1.1,2.2)
-        local b = Instance.new("SelectionBox", hat); b.Adornee=hat; b.LineThickness=0.05; b.Color3=PureWhite; b.Transparency=0
-        
-        RunService.RenderStepped:Connect(function()
-            if not char.Parent or not hat then if hat then hat:Destroy() end return end
-            if SCRIPT_ENABLED then
-                hat.Transparency = 0.3; b.Transparency = 0; hat.Color = GlobalColor
-                hat.CFrame = head.CFrame * CFrame.new(0,1.1,0) * CFrame.Angles(0, tick()*2, 0)
-            else
-                hat.Transparency = 1; b.Transparency = 1
-            end
-        end)
+local x54 = nil
+local function x55(c)
+    x42()
+    x52(c)
+    if x54 then x54:Disconnect() x54 = nil end
+    local h = c:WaitForChild("Head", 10)
+    if h then
+        local ht = Instance.new("Part", workspace); ht.Name="ChinaHat"; ht.Size=Vector3.new(1,1,1); ht.CanCollide=false; ht.Anchored=true; ht.Transparency=0.3; ht.Material=Enum.Material.Neon; local m = Instance.new("SpecialMesh", ht); m.MeshType=Enum.MeshType.FileMesh; m.MeshId="rbxassetid://1033714"; m.Scale=Vector3.new(2.2,1.1,2.2); local b = Instance.new("SelectionBox", ht); b.Adornee=ht; b.LineThickness=0.05; b.Color3=x12; b.Transparency=0
+        x3.RenderStepped:Connect(function() if not c.Parent or not ht then if ht then ht:Destroy() end return end if x16 then ht.Transparency = 0.3; b.Transparency = 0; ht.Color = x11; ht.CFrame = h.CFrame * CFrame.new(0,1.1,0) * CFrame.Angles(0, tick()*2, 0) else ht.Transparency = 1; b.Transparency = 1 end end)
     end
-    
-    local torso = char:WaitForChild("UpperTorso", 5) or char:WaitForChild("Torso", 5)
-    local root = char:WaitForChild("HumanoidRootPart", 5)
-    if torso and root then
-        local cape = Instance.new("Part", char); cape.Name="Cape"; cape.Size=Vector3.new(1.8,3.5,0.1); cape.Material=Enum.Material.Neon; cape.CanCollide=false; cape.Massless=true
-        local b = Instance.new("SelectionBox", cape); b.Adornee=cape; b.Color3=PureWhite; b.LineThickness=0.05
-        local mot = Instance.new("Motor6D", cape); mot.Part0=torso; mot.Part1=cape; mot.C0=CFrame.new(0,0.8,0.5); mot.C1=CFrame.new(0,1.75,0)
-        
-        RunService.Heartbeat:Connect(function()
-            if not SCRIPT_ENABLED then cape.Transparency = 1; b.Transparency = 1; return else cape.Transparency = 0; b.Transparency = 0 end
-            if cape.Parent and char.Parent then
-                cape.Color = GlobalColor
-                local vel = root.Velocity; local spd = vel.Magnitude; local ang = 0
-                if spd > 0.1 then ang = math.clamp(spd/15, 0, 0.8) end
-                if vel.Y > 0 then ang = ang + 0.5 elseif vel.Y < 0 then ang = ang + 0.8 end
-                mot.C0 = mot.C0:Lerp(CFrame.new(0,0.8,0.5)*CFrame.Angles(math.rad(-ang*45),0,0), 0.1)
-            end
-        end)
+    local to = c:WaitForChild("UpperTorso", 5) or c:WaitForChild("Torso", 5); local r = c:WaitForChild("HumanoidRootPart", 5)
+    if to and r then
+        if c:FindFirstChild("Cape") then c.Cape:Destroy() end
+        local cp = Instance.new("Part", c); cp.Name="Cape"; cp.Size=Vector3.new(1.8,3.5,0.1); cp.Material=Enum.Material.Neon; cp.CanCollide=false; cp.Massless=true; local b = Instance.new("SelectionBox", cp); b.Adornee=cp; b.Color3=x12; b.LineThickness=0.05; local mt = Instance.new("Motor6D", cp); mt.Part0=to; mt.Part1=cp; mt.C0=CFrame.new(0,0.8,0.5); mt.C1=CFrame.new(0,1.75,0)
+        x54 = x3.Heartbeat:Connect(function() if not c.Parent or not cp.Parent then if x54 then x54:Disconnect() end return end if not x16 then cp.Transparency = 1; b.Transparency = 1 else cp.Transparency = 0; b.Transparency = 0; cp.Color = x11 end local vl = r.Velocity; local sp = vl.Magnitude; local an = 0; if sp > 0.1 then an = math.clamp(sp/15, 0, 0.8) end; if vl.Y > 0 then an = an + 0.5 elseif vl.Y < 0 then an = an + 0.8 end; mt.C0 = mt.C0:Lerp(CFrame.new(0,0.8,0.5)*CFrame.Angles(math.rad(-an*45),0,0), 0.1) end)
     end
-    
-    local tAtt1, tAtt2 = Instance.new("Attachment", root), Instance.new("Attachment", root)
-    tAtt1.Position=Vector3.new(0,-1.5,0); tAtt2.Position=Vector3.new(0,1.5,0)
-    local t = Instance.new("Trail", char); t.Attachment0=tAtt1; t.Attachment1=tAtt2; t.Color=ColorSequence.new(PureWhite, Purple); t.Transparency=NumberSequence.new(0.2,1); t.Lifetime=0.5
-    RunService.RenderStepped:Connect(function() t.Enabled = SCRIPT_ENABLED end)
+    local a1, a2 = Instance.new("Attachment", r), Instance.new("Attachment", r); a1.Position=Vector3.new(0,-1.5,0); a2.Position=Vector3.new(0,1.5,0); local t = Instance.new("Trail", c); t.Attachment0=a1; t.Attachment1=a2; t.Color=ColorSequence.new(x12, x11); t.Transparency=NumberSequence.new(0.2,1); t.Lifetime=0.5; x3.RenderStepped:Connect(function() t.Enabled = x16; if x16 then t.Color = ColorSequence.new(x12, x11) end end)
 end
 
--- ИНИЦИАЛИЗАЦИЯ
-CreateWatermark()
-CreateTargetHUD()
-if LocalPlayer.Character then SetupLocal(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(SetupLocal)
+x43()
+x38()
+x50()
+if x9.Character then x55(x9.Character) end
+x9.CharacterAdded:Connect(x55)
 
-game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon Visuals", Text="Loaded.", Duration=5})
+game:GetService("StarterGui"):SetCore("SendNotification", {Title="C-Moon", Text="Loaded", Duration=5})
