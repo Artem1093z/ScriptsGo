@@ -10,20 +10,41 @@ local LocalPlayer = Players.LocalPlayer
 local Library = {}
 
 --// CONFIGURATION //--
-local GITHUB_BRANCH = "main" -- Ветка репозитория
+local GITHUB_BRANCH = "main"
 local GITHUB_USER = "Artem1093z"
 local GITHUB_REPO = "ScriptsGo"
+-- Формируем Raw ссылку автоматически
 local RAW_URL = "https://raw.githubusercontent.com/"..GITHUB_USER.."/"..GITHUB_REPO.."/refs/heads/"..GITHUB_BRANCH.."/"
 
--- Mapping: Name used in script -> Filename on GitHub
+-- [[ ICONS MAPPING ]] --
+-- Связываем ключевые слова с именами твоих файлов
 local IconsMap = {
-    ["sword"]    = "sword.png",
-    ["backpack"] = "backpack.png",
-    ["shield"]   = "shield.png",
-    ["zap"]      = "zap.png",
-    ["settings"] = "settings.png",
-    ["sell"]     = "banknote-arrow-down.png",
-    ["cart"]     = "banknote-arrow-down.png" -- Alias
+    -- Combat
+    ["sword"]    = "swords_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["combat"]   = "swords_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    
+    -- Defense / Items
+    ["shield"]   = "shield_moon_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["box"]      = "shield_moon_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png", -- Используем щит как заглушку для box
+    
+    -- Action / Misc
+    ["zap"]      = "bolt_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["flash"]    = "bolt_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    
+    -- Settings
+    ["settings"] = "settings_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["gear"]     = "settings_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    
+    -- Economy / Shop
+    ["cart"]     = "money_bag_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["sell"]     = "money_bag_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["shop"]     = "money_bag_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    
+    -- Movement / World / Farm
+    ["sprint"]   = "sprint_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["run"]      = "sprint_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png",
+    ["globe"]    = "sprint_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png", -- Используем бег для вкладки мира/фарма
+    ["farm"]     = "sprint_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png"
 }
 
 local LoadedIcons = {}
@@ -67,21 +88,29 @@ end
 --// ASSET LOADER SYSTEM //--
 local function DownloadAssets(StatusLabel, BarFill)
     if not makefolder or not writefile or not isfile or not getcustomasset then
-        StatusLabel.Text = "Error: Executor does not support file system."
+        StatusLabel.Text = "Error: Executor unsupported."
         task.wait(2)
         return
     end
 
-    local FolderName = "IOS26_Assets"
+    local FolderName = "IOS26_Assets_V2" -- Новая папка, чтобы обновить кэш
     if not isfolder(FolderName) then makefolder(FolderName) end
 
     local Total = 0
-    for _ in pairs(IconsMap) do Total = Total + 1 end
+    -- Считаем уникальные файлы, чтобы не качать дубликаты
+    local UniqueFiles = {}
+    for _, filename in pairs(IconsMap) do
+        if not UniqueFiles[filename] then
+            UniqueFiles[filename] = true
+            Total = Total + 1
+        end
+    end
+    
     local Count = 0
 
-    for name, filename in pairs(IconsMap) do
+    for filename, _ in pairs(UniqueFiles) do
         local path = FolderName .. "/" .. filename
-        StatusLabel.Text = "Downloading: " .. filename .. "..."
+        StatusLabel.Text = "Downloading: " .. filename
         
         if not isfile(path) then
             local success, content = pcall(function()
@@ -95,17 +124,21 @@ local function DownloadAssets(StatusLabel, BarFill)
             end
         end
         
-        -- Register asset
-        local assetId = getcustomasset(path)
-        LoadedIcons[name] = assetId
-        
         Count = Count + 1
-        TweenService:Create(BarFill, TweenInfo.new(0.2), {Size = UDim2.new(Count/Total, 0, 1, 0)}):Play()
-        task.wait(0.05) -- Artificial delay for visual effect
+        TweenService:Create(BarFill, TweenInfo.new(0.1), {Size = UDim2.new(Count/Total, 0, 1, 0)}):Play()
+        task.wait()
+    end
+    
+    -- Register assets
+    for key, filename in pairs(IconsMap) do
+        local path = FolderName .. "/" .. filename
+        if isfile(path) then
+            LoadedIcons[key] = getcustomasset(path)
+        end
     end
     
     StatusLabel.Text = "Assets Loaded!"
-    task.wait(0.5)
+    task.wait(0.3)
 end
 
 --// THEME MANAGER //--
@@ -171,9 +204,9 @@ end
 
 function Library:GetIcon(name)
     if not name then return "rbxassetid://0" end
-    -- Check downloaded assets first
-    if LoadedIcons[name] then return LoadedIcons[name] end
-    -- Then Roblox IDs
+    local cleanName = string.lower(name)
+    if LoadedIcons[cleanName] then return LoadedIcons[cleanName] end
+    -- Fallback to standard IDs if passed
     if string.find(name, "rbxassetid://") or tonumber(name) then return name end
     return "rbxassetid://0"
 end
@@ -224,7 +257,7 @@ function Library:Init(options)
     local TitleText = options.Name or "IOS 26"
     local IsMobile = UserInputService.TouchEnabled
     
-    local GUI = Create("ScreenGui", {Name = "IOS26_Lib", Parent = RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false})
+    local GUI = Create("ScreenGui", {Name = "IOS26_Lib_V17", Parent = RunService:IsStudio() and LocalPlayer.PlayerGui or CoreGui, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false})
 
     --// 1. LOADING SCREEN //--
     local Blur = Instance.new("BlurEffect", Lighting)
@@ -239,7 +272,7 @@ function Library:Init(options)
     Create("UIStroke", {Parent = LoaderFrame, Color = Color3.fromRGB(60,60,70), Thickness = 1})
 
     local LoaderTitle = Create("TextLabel", {
-        Parent = LoaderFrame, Text = "Initializing Assets...", Font = Enum.Font.GothamBold, TextColor3 = Color3.fromRGB(255,255,255),
+        Parent = LoaderFrame, Text = "Updating Assets...", Font = Enum.Font.GothamBold, TextColor3 = Color3.fromRGB(255,255,255),
         TextSize = 16, Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 0, 10), BackgroundTransparency = 1
     })
     
@@ -275,7 +308,7 @@ function Library:Init(options)
     local Main = Register(Create("Frame", {Name = "Main", Parent = GUI, Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundColor3 = CurrentTheme.Main, BackgroundTransparency = 0.1}), "Main")
     Create("UICorner", {Parent = Main, CornerRadius = UDim.new(0, 20)}); local MainStroke = AddStroke(Main, "Stroke", 1.5); AddShimmer(MainStroke, 6); SpawnBlobs(Main)
 
-    local Watermark = Register(Create("ImageLabel", {Parent = Main, BackgroundTransparency = 1, Image = "rbxassetid://6031245219", ImageColor3 = CurrentTheme.Accent, ImageTransparency = 0.92, Size = UDim2.new(0, 160, 0, 160), Position = UDim2.new(0.5, -80, 0.45, -80), ZIndex = 0}), "Accent")
+    local Watermark = Register(Create("ImageLabel", {Parent = Main, BackgroundTransparency = 1, Image = Library:GetIcon("shield"), ImageColor3 = CurrentTheme.Accent, ImageTransparency = 0.92, Size = UDim2.new(0, 160, 0, 160), Position = UDim2.new(0.5, -80, 0.45, -80), ZIndex = 0}), "Accent")
     task.spawn(function() while Watermark.Parent do TweenService:Create(Watermark, TweenInfo.new(4, Enum.EasingStyle.Sine), {ImageTransparency = 0.88, Size = UDim2.new(0, 170, 0, 170)}):Play(); task.wait(4); TweenService:Create(Watermark, TweenInfo.new(4, Enum.EasingStyle.Sine), {ImageTransparency = 0.95, Size = UDim2.new(0, 150, 0, 150)}):Play(); task.wait(4) end end)
 
     local TopBar = Create("Frame", { Parent = Main, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 45), ZIndex = 10 })
@@ -387,7 +420,7 @@ function Library:Init(options)
 
             function Elements:AddSlider(text, min, max, default, callback, increment)
                 local Value = default or min; local Funcs = {}
-                local Step = increment or 1 -- Default increment to 1 if not provided
+                local Step = increment or 1 
                 local SldFrame = Register(Create("Frame", {Parent = Container, Size = UDim2.new(1, -16, 0, 50), BackgroundColor3 = CurrentTheme.Main, BackgroundTransparency = 0.5}), "Main"); Create("UICorner", {Parent = SldFrame, CornerRadius = UDim.new(0, 10)}); AddStroke(SldFrame, "Stroke", 1)
                 Register(Create("TextLabel", {Parent = SldFrame, Text = text, Font = Enum.Font.GothamSemibold, TextColor3 = CurrentTheme.Text, TextSize = 12, Position = UDim2.new(0, 10, 0, 5), Size = UDim2.new(1, -20, 0, 15), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left}), "Text")
                 local ValLbl = Register(Create("TextLabel", {Parent = SldFrame, Text = tostring(Value), Font = Enum.Font.GothamBold, TextColor3 = CurrentTheme.Accent, TextSize = 12, Position = UDim2.new(1, -40, 0, 5), Size = UDim2.new(0, 30, 0, 15), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Right}), "Accent")
@@ -405,13 +438,9 @@ function Library:Init(options)
                 local function Update(i) 
                     local p = math.clamp((i.Position.X - BarBack.AbsolutePosition.X) / BarBack.AbsoluteSize.X, 0, 1); 
                     local rawValue = min + (max - min) * p
-                    -- Apply Step (Increment)
                     Value = math.floor((rawValue / Step) + 0.5) * Step
-                    -- Clamp to ensure it stays within min/max
                     Value = math.clamp(Value, min, max)
-                    -- Strip floating point errors
                     Value = tonumber(string.format("%.2f", Value))
-                    
                     UpdateVisual(Value); callback(Value) 
                 end
                 
