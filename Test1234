@@ -1,0 +1,1136 @@
+local SERVICE_ID = "nagahub"
+local KEY_FILE = "yba_perfect_blocker_key.txt"
+
+-- СЕРВИСЫ
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TeleportService = game:GetService("TeleportService")
+local Debris = game:GetService("Debris")
+
+local HWID = tostring(Players.LocalPlayer.UserId)
+
+--------------------------------------------------------------------
+-- ГЛАВНАЯ ФУНКЦИЯ (СКРИПТ)
+--------------------------------------------------------------------
+local function RunScript()
+    print("[-] Authentication Passed. Executing YBA Full Script via IOS 26 UI...")
+
+    task.spawn(function()
+        local localPlayer = Players.LocalPlayer
+        local camera = Workspace.CurrentCamera
+        
+        -- ЗАГРУЗКА LUNA UI (IOS 26)
+        local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Artem1093z/ScriptsGo/refs/heads/main/LunaUItest"))()
+        
+        -- КЕШ ПЕРЕМЕННЫХ
+        local myCharacter = nil
+        local myRoot = nil
+        local myRemote = nil
+        local myHumanoid = nil
+
+        local function showNotification(title, content, icon, duration)
+            Library:Notify(title, content)
+        end
+
+        -- ОБНОВЛЕНИЕ ПЕРСОНАЖА
+        local function updateLocalCharacter()
+            myCharacter = localPlayer.Character
+            myRoot = nil
+            myRemote = nil
+            myHumanoid = nil
+
+            if not myCharacter then return end
+
+            local function tryFind()
+                if not myCharacter then return end
+                if not myRoot then myRoot = myCharacter:FindFirstChild("HumanoidRootPart") end
+                if not myRemote then myRemote = myCharacter:FindFirstChild("RemoteEvent") end
+                if not myHumanoid then myHumanoid = myCharacter:FindFirstChildOfClass("Humanoid") end
+            end
+            tryFind()
+
+            myCharacter.ChildAdded:Connect(tryFind)
+            if myHumanoid then
+                myHumanoid.Died:Connect(function() myRoot = nil end)
+            end
+        end
+        
+        localPlayer.CharacterAdded:Connect(updateLocalCharacter)
+        updateLocalCharacter()
+
+        local function getCharacter() return localPlayer.Character end
+        local function safeFire(remote, ...)
+            if remote then pcall(function(...) remote:FireServer(...) end, ...) end
+        end
+        local function distSq(a, b)
+            return (a.X-b.X)^2 + (a.Y-b.Y)^2 + (a.Z-b.Z)^2
+        end
+
+        -- НАСТРОЙКИ
+        local AUTO_BLOCK_RADIUS = 60
+        local AUTO_BLOCK_RADIUS_SQ = 3600
+        local M1_BLOCK_RADIUS = 20
+        local M1_BLOCK_RADIUS_SQ = 400
+
+        local SETTING_PB_DELAY_NORMAL = 0.15
+        local SETTING_PB_HOLD_NORMAL = 0.6
+        local SETTING_M1_HOLD = 0.6
+        local SETTING_BLOCK_HOLD_NEW = 1.2
+
+        local isAutoBlockActive = false
+        local isBlockM1sActive = true
+        local isAutoBarrageActive = false
+        local isAutoBreakBlockActive = false
+        local isTPBreakActive = false
+        
+        local isAutoSummonStandActive = false
+        local isArcadeGodModeActive = false
+        local isAutoSprintActive = false
+        local isAutoSellActive = false
+        local isAutoCandyActive = false
+
+        local minHold = 0.05
+        local breakBlockMode = "M2"
+        local candyNames = { "Red Candy", "Blue Candy", "Green Candy", "Yellow Candy" }
+        local candyProcessing = false
+
+        local isBlockingCurrently = false
+        local blockUnblockAt = 0
+
+        local DelayedBlocks_M1 = {}
+        local DelayedBlocks_Normal = {}
+        local DelayedBlocks_InstantLongNew = {}
+
+        local entityConnections = {} 
+
+        local sellableItems = {
+            "Mysterious Arrow", "Rokakaka", "Ancient Scroll", "Diamond", "Gold Coin", "Stone Mask",
+            "Steel Ball", "Dio's Diary", "Quinton's Glove", "Zepelin's Headband",
+            "Rib Cage of The Saint's Corpse", "Zeppeli's Hat", "Caesar's Headband",
+            "Pure Rokakaka", "Clackers"
+        }
+        local selectedSellItems = {}
+
+        -- БОЕВЫЕ ФУНКЦИИ
+        local function toggleBlocking(action)
+            if myRemote then myRemote:FireServer(action) end
+        end
+        local function fireStandBarrage()
+            if myRemote then myRemote:FireServer("MobileSkillInputBegan", "Stand Barrage") end
+        end
+        local function doDash()
+            if myCharacter then
+                local rf = myCharacter:WaitForChild("RemoteFunction", 0.5)
+                if rf then rf:InvokeServer("Dash", {}) end
+            end
+        end
+
+        -- MISC ФУНКЦИИ
+        local function startSprinting()
+            if myRemote then myRemote:FireServer("StartSprinting") end
+        end
+        local function autoSprintLoop()
+            while isAutoSprintActive do startSprinting(); task.wait(0.5) end
+        end
+        local function summonStand()
+            if myRemote then myRemote:FireServer("ToggleStand", true) end
+        end
+        local function autoSummonStandLoop()
+            while isAutoSummonStandActive do
+                local living = Workspace:FindFirstChild("Living")
+                local playerModel = living and living:FindFirstChild(localPlayer.Name)
+                local summoned = playerModel and playerModel:FindFirstChild("SummonedStand")
+                if summoned and not summoned.Value then summonStand() end
+                task.wait(0.5)
+            end
+        end
+        local function arcadeGodModeLoop()
+            local g = localPlayer:WaitForChild("PlayerGui")
+            if g:FindFirstChild("RollingItem") then g.RollingItem:Destroy() end
+            local connection = g.ChildAdded:Connect(function(v) if v.Name == "RollingItem" then v:Destroy() end end)
+            while isArcadeGodModeActive do
+                if myRemote then 
+                    myRemote:FireServer("EndDialogue", {Option="Option1", Dialogue="Dialogue1", NPC="Item Machine"}) 
+                end
+                task.wait(0.25)
+            end
+            if connection then connection:Disconnect() end
+        end
+
+        -- TP AIM
+        local tpAimConn, tpAimInitialAngle
+        local StartTpAutoAim, StopTpAutoAim
+        local TP_AUTOAIM_SPEED_DEG = 540
+
+        StopTpAutoAim = function()
+            if tpAimConn then tpAimConn:Disconnect(); tpAimConn = nil end
+            tpAimInitialAngle = nil
+        end
+        StartTpAutoAim = function(targetHRP)
+            StopTpAutoAim()
+            if not (myRoot and targetHRP) then return end
+            tpAimConn = RunService.RenderStepped:Connect(function(dt)
+                if not myRoot.Parent or not targetHRP.Parent then StopTpAutoAim(); return end
+                local myPos = myRoot.Position
+                local tPos  = targetHRP.Position
+                local tgtFlat = Vector3.new(tPos.X, myPos.Y, tPos.Z)
+                local toTarget = tgtFlat - myPos
+                if toTarget.Magnitude < 0.1 then StopTpAutoAim(); return end
+                local dir  = toTarget.Unit
+                local look = myRoot.CFrame.LookVector
+                local dot  = math.clamp(look:Dot(dir), -1, 1)
+                local angle = math.acos(dot)
+                if not tpAimInitialAngle then tpAimInitialAngle = math.max(angle, math.rad(1)) end
+                local step = math.rad(TP_AUTOAIM_SPEED_DEG) * dt
+                if angle <= math.rad(1) or step >= angle then
+                    myRoot.CFrame = CFrame.new(myPos, myPos + dir)
+                    StopTpAutoAim(); return
+                end
+                local sign = (look:Cross(dir)).Y >= 0 and 1 or -1
+                myRoot.CFrame = myRoot.CFrame * CFrame.Angles(0, sign * step, 0)
+            end)
+        end
+
+        -- АНИМАЦИИ
+        local ANIM_INDEX = {}
+        local function AddAnim(id, type, delay, hold, isM1, isNew, cat)
+            ANIM_INDEX[id] = {
+                type = type,
+                delay = delay or 0,
+                hold = hold or 0.6,
+                isM1 = isM1 or false,
+                isInstantLongNew = isNew or false,
+                category = cat or "NONE"
+            }
+        end
+
+        local normal_ids = {"rbxassetid://4095625816","rbxassetid://13899360363","rbxassetid://4879759800","rbxassetid://4825999731","rbxassetid://13897749317","rbxassetid://4211804997","rbxassetid://4096014941","rbxassetid://6216059085","rbxassetid://6216052429","rbxassetid://6049426097","rbxassetid://5227558947","rbxassetid://7250792726","rbxassetid://10443024044","rbxassetid://10444683732","rbxassetid://10443019808","rbxassetid://10726618791","rbxassetid://10726619267","rbxassetid://10726619714","rbxassetid://12472188145","rbxassetid://12472187035","rbxassetid://12472184729","rbxassetid://12472183894","rbxassetid://6701277902","rbxassetid://6704817082","rbxassetid://74382652219174","rbxassetid://6780938176","rbxassetid://15627021093","rbxassetid://4812642386","rbxassetid://6835249882","rbxassetid://6835261066","rbxassetid://98740926401939","rbxassetid://101069786143553","rbxassetid://4497027865","rbxassetid://5303792071","rbxassetid://11835662089","rbxassetid://12293318922","rbxassetid://6105486059"}
+        for _, id in ipairs(normal_ids) do AddAnim(id, "block", 0.25, 0.6, false, false, "NORMAL") end
+
+        local instant_long = {"rbxassetid://4095589649","rbxassetid://4095591763","rbxassetid://4095590714","rbxassetid://4095592767","rbxassetid://4095593647","rbxassetid://6216078473","rbxassetid://6216079365","rbxassetid://6216079832","rbxassetid://6696140087","rbxassetid://6696140608","rbxassetid://6704817374","rbxassetid://6696144795","rbxassetid://6696145049","rbxassetid://6835251541","rbxassetid://6835253731","rbxassetid://6835255763","rbxassetid://6835257748","rbxassetid://6835259549","rbxassetid://75371369107568","rbxassetid://101280088140644","rbxassetid://73270030493694","rbxassetid://98303744043695","rbxassetid://81502810063424","rbxassetid://4211798914","rbxassetid://4211799970","rbxassetid://4211801059","rbxassetid://4211801897","rbxassetid://4480558941","rbxassetid://4480559082","rbxassetid://4480559245","rbxassetid://4480559418","rbxassetid://4480559777","rbxassetid://4211802698"}
+        for _, id in ipairs(instant_long) do AddAnim(id, "block", 0, 0.6, true, false, "INSTANT_LONG") end
+
+        local instant_long_new = {"rbxassetid://5248107852","rbxassetid://4133363765","rbxassetid://13819648081","rbxassetid://13819641343","rbxassetid://13819637981","rbxassetid://13819640221","rbxassetid://13819646949","rbxassetid://13819639002","rbxassetid://6216058630","rbxassetid://5248128116","rbxassetid://6277192242","rbxassetid://6869896659","rbxassetid://6869895377","rbxassetid://6869897553","rbxassetid://4628344892","rbxassetid://5793968491","rbxassetid://12733018380","rbxassetid://12733022476","rbxassetid://12733016318","rbxassetid://10443021814","rbxassetid://11835659609","rbxassetid://1180931117149","rbxassetid://1140451768001","rbxassetid://6780928238","rbxassetid://6780937804","rbxassetid://15573643799","rbxassetid://15573646670","rbxassetid://14174878575","rbxassetid://6455260236","rbxassetid://4073802828","rbxassetid://6455259861","rbxassetid://4139919881","rbxassetid://6836280504","rbxassetid://4608512208","rbxassetid://4595562165","rbxassetid://83378529435767","rbxassetid://124500775323666","rbxassetid://5303792071","rbxassetid://11835661536","rbxassetid://11835659609","rbxassetid://11835655817","rbxassetid://11886825775","rbxassetid://70798054405137","rbxassetid://12293318922","rbxassetid://12292886724","rbxassetid://12292668429","rbxassetid://4691787301","rbxassetid://6651725175","rbxassetid://12020102983","rbxassetid://140176415013134","rbxassetid://9997935665","rbxassetid://9973363678","rbxassetid://12020151604"}
+        for _, id in ipairs(instant_long_new) do AddAnim(id, "block", 0, 1.2, false, true, "INSTANT_LONG_NEW") end
+
+        local super_long = { "rbxassetid://5227552992", "rbxassetid://6048575522", "rbxassetid://9957254307" }
+        for _, id in ipairs(super_long) do AddAnim(id, "block", 0, 2, false, false, "SUPER_LONG") end
+
+        local late_react = { "rbxassetid://11886832410", "rbxassetid://11886827025", "rbxassetid://4637718549", "rbxassetid://4120490143", "rbxassetid://6105486422", "rbxassetid://9957255145", "rbxassetid://4884445717", "rbxassetid://4880380466", "rbxassetid://5100003193" }
+        for _, id in ipairs(late_react) do AddAnim(id, "dash", 0, 0, false, false, "LATE_REACT") end
+
+        local barrages = { "rbxassetid://11154840409", "rbxassetid://13899359450", "rbxassetid://6216053394", "rbxassetid://5030894377", "rbxassetid://6455260236", "rbxassetid://6835245845" }
+        for _, id in ipairs(barrages) do AddAnim(id, "barrage") end
+
+        local breaks = { "rbxassetid://4263928734" }
+        for _, id in ipairs(breaks) do AddAnim(id, "breakBlock") end
+
+        local function refreshAnimStats()
+            for _, info in pairs(ANIM_INDEX) do
+                if info.category == "NORMAL" then info.delay = SETTING_PB_DELAY_NORMAL; info.hold = SETTING_PB_HOLD_NORMAL
+                elseif info.category == "INSTANT_LONG" then info.hold = SETTING_M1_HOLD
+                elseif info.category == "INSTANT_LONG_NEW" then info.hold = SETTING_BLOCK_HOLD_NEW
+                end
+            end
+        end
+
+        local function breakBlock(targetCharacter)
+            if isTPBreakActive and targetCharacter then
+                local tHRP = targetCharacter:FindFirstChild("HumanoidRootPart")
+                if myRoot and tHRP then
+                    local tPos = tHRP.Position
+                    local v = myRoot.Position - tPos
+                    local safeDir = v.Magnitude > 0.001 and v.Unit or Vector3.new(0, 0, -1)
+                    myRoot.CFrame = CFrame.new(tPos + safeDir * 5, Vector3.new(tPos.X, tPos.Y + 5, tPos.Z))
+                    showNotification("TP Break", "Teleporting...", nil, 2)
+                    StartTpAutoAim(tHRP)
+                end
+            end
+            if myRemote then
+                if breakBlockMode == "M2" then myRemote:FireServer("Attack","m2")
+                elseif breakBlockMode == "R" then myRemote:FireServer("InputBegan", { Input = Enum.KeyCode.R })
+                elseif breakBlockMode == "Y" then myRemote:FireServer("InputBegan", { Input = Enum.KeyCode.Y })
+                elseif breakBlockMode == "G" then myRemote:FireServer("InputBegan", { Input = Enum.KeyCode.G })
+                end
+            end
+        end
+
+        local function scheduleDelayedBlock(delay, hold, isM1, isInstantLongNew)
+            local entry = { time = os.clock() + delay, hold = hold, isM1 = isM1, isInstantLongNew = isInstantLongNew }
+            if isM1 then table.insert(DelayedBlocks_M1, entry)
+            elseif isInstantLongNew then table.insert(DelayedBlocks_InstantLongNew, entry)
+            else table.insert(DelayedBlocks_Normal, entry)
+            end
+        end
+
+        local function hardStopBlock()
+            if isBlockingCurrently then
+                toggleBlocking("StopBlocking")
+                isBlockingCurrently = false
+                blockUnblockAt = 0
+            end
+        end
+
+        local function startBlockNow(hold, isM1, isInstantLongNew)
+            local now = os.clock()
+            local effectiveHold = math.max(minHold, hold)
+            if isBlockingCurrently then
+                local endAt = now + effectiveHold
+                if isM1 then
+                    if endAt > blockUnblockAt then blockUnblockAt = endAt end
+                    return
+                end
+                if isInstantLongNew then
+                    if endAt > blockUnblockAt then blockUnblockAt = endAt end
+                    return
+                end
+                toggleBlocking("StopBlocking")
+                isBlockingCurrently = false
+                toggleBlocking("StartBlocking")
+                isBlockingCurrently = true
+                blockUnblockAt = endAt
+                return
+            end
+            toggleBlocking("StartBlocking")
+            isBlockingCurrently = true
+            blockUnblockAt = now + effectiveHold
+        end
+        
+        local recentActionStamp = {}
+
+        local function handleAttackAnimation(track, attackerPlayer, attackerRoot)
+            if not track or not track.Animation then return end
+            if attackerPlayer == localPlayer then return end
+            
+            local animId = track.Animation.AnimationId
+            local info = ANIM_INDEX[animId]
+            if not info then return end 
+            if not myRoot then return end
+
+            local d2 = distSq(myRoot.Position, attackerRoot.Position)
+            local now = os.clock()
+            local last = recentActionStamp[attackerPlayer] or 0
+            if (now - last) <= 0.02 then return end
+            recentActionStamp[attackerPlayer] = now
+
+            if info.type == "block" then
+                local isM1 = info.isM1
+                if isM1 then
+                    if not isBlockM1sActive or d2 > M1_BLOCK_RADIUS_SQ or not isAutoBlockActive then return end
+                else
+                    if not isAutoBlockActive or d2 > AUTO_BLOCK_RADIUS_SQ then return end
+                end
+                if info.category == "NORMAL" or info.category == "LATE_REACT" then hardStopBlock() end
+                if info.delay <= 0 then startBlockNow(info.hold, isM1, info.isInstantLongNew)
+                else scheduleDelayedBlock(info.delay, info.hold, isM1, info.isInstantLongNew) end
+
+            elseif info.type == "dash" then
+                if isAutoBlockActive and d2 <= AUTO_BLOCK_RADIUS_SQ then hardStopBlock(); doDash() end
+            elseif info.type == "barrage" then
+                if isAutoBarrageActive and d2 <= AUTO_BLOCK_RADIUS_SQ then fireStandBarrage() end
+            elseif info.type == "breakBlock" then
+                if isAutoBreakBlockActive and d2 <= AUTO_BLOCK_RADIUS_SQ then breakBlock(attackerPlayer.Character) end
+            end
+        end
+
+        local function connectAnimator(animator, player, rootPart)
+            if not animator then return end
+            local conn = animator.AnimationPlayed:Connect(function(track)
+                handleAttackAnimation(track, player, rootPart)
+            end)
+            if not entityConnections[player] then entityConnections[player] = {} end
+            table.insert(entityConnections[player], conn)
+        end
+
+        local function scanCharacterForAnimators(char, player, root)
+            for _, obj in ipairs(char:GetDescendants()) do
+                if obj:IsA("Animator") then connectAnimator(obj, player, root) end
+            end
+            local conn = char.DescendantAdded:Connect(function(desc)
+                if desc:IsA("Animator") then connectAnimator(desc, player, root) end
+            end)
+            if not entityConnections[player] then entityConnections[player] = {} end
+            table.insert(entityConnections[player], conn)
+        end
+
+        local function setupEntity(player, char)
+            task.spawn(function()
+                if not char then return end
+                if entityConnections[player] then
+                    for _, c in ipairs(entityConnections[player]) do c:Disconnect() end
+                    entityConnections[player] = {}
+                else entityConnections[player] = {} end
+                local root = char:WaitForChild("HumanoidRootPart", 10)
+                if not root then return end
+                if player.Character ~= char then return end
+                scanCharacterForAnimators(char, player, root)
+            end)
+        end
+
+        local function cleanupEntity(player)
+            if entityConnections[player] then
+                for _, c in ipairs(entityConnections[player]) do c:Disconnect() end
+                entityConnections[player] = nil
+            end
+        end
+
+        Players.PlayerAdded:Connect(function(plr)
+            plr.CharacterAdded:Connect(function(char) setupEntity(plr, char) end)
+            if plr.Character then setupEntity(plr, plr.Character) end
+        end)
+        Players.PlayerRemoving:Connect(cleanupEntity)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= localPlayer then
+                if p.Character then setupEntity(p, p.Character) end
+                p.CharacterAdded:Connect(function(c) setupEntity(p, c) end)
+            end
+        end
+
+        RunService.Heartbeat:Connect(function()
+            local now = os.clock()
+            local function processQueue(queue)
+                local i = 1
+                while i <= #queue do
+                    local item = queue[i]
+                    if item.time <= now then
+                        table.remove(queue, i)
+                        startBlockNow(item.hold, item.isM1, item.isInstantLongNew)
+                    else i = i + 1 end
+                end
+            end
+            processQueue(DelayedBlocks_M1)
+            processQueue(DelayedBlocks_Normal)
+            processQueue(DelayedBlocks_InstantLongNew)
+            if isBlockingCurrently and now >= blockUnblockAt then
+                toggleBlocking("StopBlocking")
+                isBlockingCurrently = false
+            end
+        end)
+
+        -- АВТО-ФАРМ CANDY/SELL
+        local function autoCandyLoop()
+            if not localPlayer then return end
+            while isAutoCandyActive do
+                if candyProcessing then task.wait(0.4); continue end
+                local backpack = localPlayer:FindFirstChild("Backpack")
+                if not backpack then task.wait(0.8); continue end
+                local found = false
+                for _, name in ipairs(candyNames) do
+                    if backpack:FindFirstChild(name) then found = true; break end
+                end
+                if found then
+                    candyProcessing = true
+                    showNotification("Auto Candy", "Candy detected", nil, 2)
+                    local remote = myRemote
+                    local dialogueFolder = ReplicatedStorage:FindFirstChild("NewDialogue")
+                    local halloween = dialogueFolder and dialogueFolder:FindFirstChild("Halloween Event")
+                    if remote and halloween then safeFire(remote, "PromptTriggered", halloween) end
+                    
+                    local function findAndClickButton(path, waitVisible)
+                        local node = localPlayer
+                        for _, p in ipairs(path) do
+                            if node then node = node:FindFirstChild(p) else break end
+                        end
+                        if node and node:IsA("TextButton") then
+                            if waitVisible then
+                                local t0 = os.clock()
+                                while not node.Visible and (os.clock() - t0) < 5 do task.wait(0.05) end
+                            end
+                            if node.MouseButton1Click then node.MouseButton1Click:Fire(); task.wait(0.05) end
+                            return true
+                        end
+                        return false
+                    end
+                    if findAndClickButton({"PlayerGui","DialogueGui","Frame","Options","Option2","TextButton"}, false) then
+                        findAndClickButton({"PlayerGui","DialogueGui","Frame","ClickContinue"}, true)
+                    end
+                    candyProcessing = false
+                    task.wait(1.5)
+                else task.wait(1) end
+            end
+        end
+
+        local function autoSellLoop()
+            while isAutoSellActive do
+                local character = getCharacter()
+                local backpack  = localPlayer:FindFirstChild("Backpack")
+                local humanoid  = character and character:FindFirstChildOfClass("Humanoid")
+                if not (backpack and humanoid) then task.wait(1) continue end
+                local foundItemToSell = false
+                for _, itemName in ipairs(selectedSellItems) do
+                    local itemToSell = backpack:FindFirstChild(itemName)
+                    if itemToSell and itemToSell:IsA("Tool") then
+                        if itemToSell.Parent ~= character then
+                            humanoid:EquipTool(itemToSell)
+                            task.wait(0.12)
+                        end
+                        if itemToSell.Parent == character then
+                            local re = character:FindFirstChild("RemoteEvent")
+                            if re then
+                                re:FireServer("EndDialogue", { Option="Option2", Dialogue="Dialogue5", NPC="Merchant" })
+                                task.wait(0.25)
+                                foundItemToSell = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if not foundItemToSell then task.wait(2) else task.wait(1) end
+            end
+        end
+
+        -- ITEM FARM
+        local IF_Enabled          = false
+        local IF_BuyLucky         = false
+        local IF_AutoSell         = false
+        local IF_ServerHop        = false
+
+        local ItemFarmCollectItemsList = {
+            "Gold Coin", "Rokakaka", "Pure Rokakaka", "Mysterious Arrow", "Diamond", "Ancient Scroll",
+            "Caesar's Headband", "Stone Mask", "Rib Cage of The Saint's Corpse", "Quinton's Glove",
+            "Zeppeli's Hat", "Lucky Arrow", "Lucky Stone Mask", "Clackers", "Steel Ball",
+            "Dio's Diary", "Red Candy", "Blue Candy", "Green Candy", "Yellow Candy"
+        }
+        local IF_SelectedCollectItems = {}
+        local IF_SelectedSellItems    = {}
+
+        CoreGui.DescendantAdded:Connect(function(child)
+            if child.Name == "ErrorPrompt" then
+                local grabError = child:FindFirstChild("ErrorMessage", true)
+                repeat task.wait() until grabError and grabError.Text ~= "Label"
+                local reason = grabError.Text
+                if reason:match("kick") or reason:match("You") or reason:match("conn") or reason:match("rejoin") then
+                    TeleportService:Teleport(2809202155, localPlayer)
+                end
+            end
+        end)
+
+        local Has2x = false
+        pcall(function() Has2x = MarketplaceService:UserOwnsGamePassAsync(localPlayer.UserId, 14597778) end)
+
+        local oldMagnitude
+        oldMagnitude = hookmetamethod(Vector3.new(), "__index", newcclosure(function(self, index)
+            local CallingScript = tostring(getcallingscript())
+            if not checkcaller() and index == "magnitude" and CallingScript == "ItemSpawn" then return 0 end
+            return oldMagnitude(self, index)
+        end))
+
+        local ItemSpawnFolder = Workspace:WaitForChild("Item_Spawns"):WaitForChild("Items")
+        local function IF_GetCharacter(partName)
+            local char = getCharacter()
+            if char then
+                if not partName then return char
+                elseif typeof(partName) == "string" then return char:FindFirstChild(partName) end
+            end
+            return nil
+        end
+        local function IF_TeleportTo(pos)
+            local hrp = IF_GetCharacter("HumanoidRootPart")
+            if hrp and typeof(pos) == "CFrame" then hrp.CFrame = pos end
+        end
+        local function IF_ToggleNoclip(value)
+            local char = IF_GetCharacter()
+            if not char then return end
+            for _, child in pairs(char:GetDescendants()) do
+                if child:IsA("BasePart") then child.CanCollide = not value end
+            end
+        end
+
+        local MaxItemAmounts = {
+            ["Gold Coin"]=45, ["Rokakaka"]=25, ["Pure Rokakaka"]=10, ["Mysterious Arrow"]=25,
+            ["Diamond"]=30, ["Ancient Scroll"]=10, ["Caesar's Headband"]=10, ["Stone Mask"]=10,
+            ["Rib Cage of The Saint's Corpse"]=20, ["Quinton's Glove"]=10, ["Zeppeli's Hat"]=10,
+            ["Lucky Arrow"]=10, ["Clackers"]=10, ["Steel Ball"]=10, ["Dio's Diary"]=10
+        }
+        if Has2x then for k, v in pairs(MaxItemAmounts) do MaxItemAmounts[k] = v * 2 end end
+
+        local function IF_HasMaxItem(itemName)
+            local backpack = localPlayer:FindFirstChild("Backpack")
+            if not backpack then return false end
+            local count = 0
+            for _, tool in pairs(backpack:GetChildren()) do if tool.Name == itemName then count += 1 end end
+            if MaxItemAmounts[itemName] then return count >= MaxItemAmounts[itemName] end
+            return false
+        end
+        local function IF_HasLuckyArrows()
+            local backpack = localPlayer:FindFirstChild("Backpack")
+            if not backpack then return false end
+            local count = 0
+            for _, tool in pairs(backpack:GetChildren()) do if tool.Name == "Lucky Arrow" then count += 1 end end
+            return count >= 9
+        end
+
+        local Teleport = loadstring(game:HttpGet("https://raw.githubusercontent.com/rinqedd/pub_rblx/main/ServerHop", true))
+        local function IF_GetItemInfo(model)
+            if model and model:IsA("Model") and model.Parent and model.Parent.Name == "Items" then
+                local primary = model.PrimaryPart
+                if not primary then return nil end
+                local pos = primary.Position
+                local prox
+                for _, itemInst in pairs(model:GetChildren()) do
+                    if itemInst:IsA("ProximityPrompt") and itemInst.MaxActivationDistance == 8 then prox = itemInst; break end
+                end
+                if prox then return { Name = prox.ObjectText, ProximityPrompt = prox, Position = pos } end
+            end
+            return nil
+        end
+
+        getgenv().SpawnedItems = {}
+        ItemSpawnFolder.ChildAdded:Connect(function(model)
+            task.wait(1)
+            if model:IsA("Model") then
+                local info = IF_GetItemInfo(model)
+                if info then getgenv().SpawnedItems[model] = info end
+            end
+        end)
+
+        local UzuKeeIsRetardedAndDoesntKnowHowToMakeAnAntiCheatOnTheServerSideAlsoVexStfuIKnowTheCodeIsBadYouDontNeedToTellMe = "  ___XP DE KEY"
+        local oldNc
+        oldNc = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args   = {...}
+            if not checkcaller() and rawequal(self.Name, "Returner") and rawequal(args[1], "idklolbrah2de") then
+                return UzuKeeIsRetardedAndDoesntKnowHowToMakeAnAntiCheatOnTheServerSideAlsoVexStfuIKnowTheCodeIsBadYouDontNeedToTellMe
+            end
+            return oldNc(self, ...)
+        end))
+
+        task.spawn(function()
+            if not localPlayer:WaitForChild("PlayerGui", 10):FindFirstChild("HUD") then
+                local hudTemplate = ReplicatedStorage:WaitForChild("Objects"):WaitForChild("HUD")
+                local cloneHud = hudTemplate:Clone()
+                cloneHud.Parent = localPlayer.PlayerGui
+            end
+            local pg = localPlayer.PlayerGui
+            task.wait(1)
+            pcall(function() pg:WaitForChild("LoadingScreen1"):Destroy() end)
+            task.wait(0.5)
+            pcall(function() pg:WaitForChild("LoadingScreen"):Destroy() end)
+            pcall(function() workspace.LoadingScreen.Song:Destroy() end)
+        end)
+
+        local function ItemFarmLoop()
+            repeat task.wait() until IF_GetCharacter() and IF_GetCharacter("RemoteEvent")
+            IF_GetCharacter("RemoteEvent"):FireServer("PressedPlay")
+            IF_TeleportTo(CFrame.new(161, 64, 336))
+            task.wait(5)
+            while IF_Enabled do
+                for model, itemInfo in pairs(getgenv().SpawnedItems) do
+                    if not IF_Enabled then break end
+                    local hrp = IF_GetCharacter("HumanoidRootPart")
+                    if not hrp then break end
+                    local name = itemInfo.Name
+                    if IF_SelectedCollectItems[name] then
+                        local hasMax = IF_HasMaxItem(name)
+                        if not hasMax then
+                            local prox = itemInfo.ProximityPrompt
+                            local pos  = itemInfo.Position
+                            getgenv().SpawnedItems[model] = nil
+                            local bv = Instance.new("BodyVelocity")
+                            bv.Velocity = Vector3.new(0,0,0)
+                            bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                            bv.Parent   = hrp
+                            IF_ToggleNoclip(true)
+                            IF_TeleportTo(CFrame.new(pos.X, pos.Y - 20, pos.Z))
+                            task.wait(0.4)
+                            pcall(function() fireproximityprompt(prox) end)
+                            task.wait(0.5)
+                            bv:Destroy()
+                            IF_TeleportTo(CFrame.new(161, 64, 336))
+                        else getgenv().SpawnedItems[model] = nil end
+                    else getgenv().SpawnedItems[model] = nil end
+                end
+                if IF_AutoSell then
+                    local backpack = localPlayer:FindFirstChild("Backpack")
+                    local char     = IF_GetCharacter()
+                    local hum      = char and char:FindFirstChildOfClass("Humanoid")
+                    local re       = char and char:FindFirstChild("RemoteEvent")
+                    if backpack and hum and re then
+                        for itemName, enabled in pairs(IF_SelectedSellItems) do
+                            if enabled and backpack:FindFirstChild(itemName) then
+                                hum:EquipTool(backpack[itemName])
+                                re:FireServer("EndDialogue", { NPC="Merchant", Dialogue="Dialogue5", Option="Option2" })
+                                task.wait(0.1)
+                            end
+                        end
+                    end
+                end
+                local moneyVal = localPlayer:FindFirstChild("PlayerStats") and localPlayer.PlayerStats:FindFirstChild("Money")
+                if IF_BuyLucky and moneyVal and not IF_HasLuckyArrows() then
+                    while IF_Enabled and moneyVal.Value >= 75000 do
+                        local char = IF_GetCharacter()
+                        local re   = char and char:FindFirstChild("RemoteEvent")
+                        if not re then break end
+                        re:FireServer("PurchaseShopItem", { ItemName = "1x Lucky Arrow" })
+                        task.wait(0.1)
+                    end
+                end
+                if IF_ServerHop and IF_Enabled then Teleport(); task.wait(3) else task.wait(3) end
+            end
+        end
+
+        -- NPC/PLAYER FARM LOGIC (XENON)
+        local XenonNPCFarmActive = false
+        local XenonPlayerFarmActive = false
+        local XenonQuestActive = false
+        local XenonNPCTargetName = nil
+        local XenonPlayerTargetName = nil
+        local XenonSelectedQuest = nil
+        local XenonStandOffset = 0.1
+        local XenonDepth = 25
+        local XenonFarmConnections = {}
+        local XenonCurrentTarget = nil
+
+        local function XenonHasStand()
+            local Stats = localPlayer:FindFirstChild("PlayerStats")
+            if Stats and Stats:FindFirstChild("Stand") then return Stats.Stand.Value ~= "None" end
+            return false
+        end
+        local function XenonEnsureStand()
+            local Char = localPlayer.Character
+            if not Char then return false end
+            if not XenonHasStand() then return false end
+            if Char:FindFirstChild("StandMorph") then return true end
+            local Remote = Char:FindFirstChild("RemoteFunction")
+            if Remote and not Char:FindFirstChild("XenonAutoSummon") then
+                local Debounce = Instance.new("BoolValue", Char)
+                Debounce.Name = "XenonAutoSummon"
+                Debris:AddItem(Debounce, 2)
+                task.spawn(function() Remote:InvokeServer("ToggleStand", "Toggle") end)
+            end
+            return false
+        end
+        local function XenonGetNPCList()
+            local Names = {}
+            local Seen = {}
+            for _, v in pairs(Workspace.Living:GetChildren()) do
+                if v:FindFirstChild("Humanoid") and v.Name ~= localPlayer.Name then
+                    if not Players:GetPlayerFromCharacter(v) then
+                        if not Seen[v.Name] then table.insert(Names, v.Name); Seen[v.Name] = true end
+                    end
+                end
+            end
+            table.sort(Names)
+            return Names
+        end
+        local function XenonGetPlayerList()
+            local Names = {}
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= localPlayer then table.insert(Names, p.Name) end
+            end
+            table.sort(Names)
+            return Names
+        end
+        local function XenonIsValid(Model)
+            if not Model or not Model.Parent then return false end
+            if Model == localPlayer.Character then return false end
+            local Hum = Model:FindFirstChildWhichIsA("Humanoid")
+            local Root = Model:FindFirstChild("HumanoidRootPart")
+            if not Root then return false end
+            if not Hum then return false end
+            if Hum.Health <= 0.2 then return false end
+            return true
+        end
+        local function XenonGetQuestList()
+            local Quests = {}
+            local Folder = Workspace:FindFirstChild("Dialogues")
+            if Folder then
+                for _, v in pairs(Folder:GetChildren()) do
+                    if string.find(v.Name, "Lvl") then table.insert(Quests, v.Name) end
+                end
+            end
+            table.sort(Quests)
+            return Quests
+        end
+        local function XenonAttemptQuest()
+            if not XenonSelectedQuest then return end
+            local Dialogues = Workspace:FindFirstChild("Dialogues")
+            if not Dialogues then return end
+            local QuestFolder = Dialogues:FindFirstChild(XenonSelectedQuest)
+            if not QuestFolder then return end
+            local NPCNameValue = QuestFolder:FindFirstChild("Dialogue")
+            if not NPCNameValue then return end
+            local Char = localPlayer.Character
+            local Remote = Char and Char:FindFirstChild("RemoteEvent")
+            if Remote then
+                for i = 1, 5 do
+                    Remote:FireServer("EndDialogue", { ["NPC"]=NPCNameValue.Value, ["Option"]="Option1", ["Dialogue"]="Dialogue"..i })
+                end
+            end
+        end
+        task.spawn(function()
+            while true do
+                if XenonQuestActive and XenonSelectedQuest then XenonAttemptQuest() end
+                task.wait(2)
+            end
+        end)
+        local function XenonSetTarget(NewTarget) XenonCurrentTarget = NewTarget end
+        local function XenonGetNewTarget()
+            local Char = localPlayer.Character
+            if not Char or not Char:FindFirstChild("HumanoidRootPart") then return nil end
+            if XenonNPCFarmActive then
+                if not XenonNPCTargetName or XenonNPCTargetName == "" then return nil end
+                for _, v in pairs(Workspace.Living:GetChildren()) do
+                    if v.Name == XenonNPCTargetName and XenonIsValid(v) then
+                        if not Players:GetPlayerFromCharacter(v) then return v end
+                    end
+                end
+            end
+            if XenonPlayerFarmActive then
+                if not XenonPlayerTargetName or XenonPlayerTargetName == "" then return nil end
+                local targetPlayer = Players:FindFirstChild(XenonPlayerTargetName)
+                if targetPlayer and targetPlayer.Character then
+                    if XenonIsValid(targetPlayer.Character) then return targetPlayer.Character end
+                end
+            end
+            return nil
+        end
+        local function XenonUpdateAttack()
+            local Char = localPlayer.Character
+            if Char and XenonCurrentTarget then
+                local Hum = XenonCurrentTarget:FindFirstChild("Humanoid")
+                if Hum and Hum.Health > 0 then
+                    if Char:FindFirstChild("StandMorph") then
+                        if Char:FindFirstChild("RemoteFunction") then Char.RemoteFunction:InvokeServer("Attack", "m1") end
+                    else XenonEnsureStand() end
+                end
+            end
+        end
+        local function XenonUpdatePosition()
+            local Char = localPlayer.Character
+            if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+            local HRP = Char.HumanoidRootPart
+            local IsStandReady = XenonEnsureStand()
+            if not IsStandReady then return end
+            if XenonCurrentTarget then
+                if not XenonIsValid(XenonCurrentTarget) then XenonSetTarget(nil) end
+            end
+            if not XenonCurrentTarget then
+                local New = XenonGetNewTarget()
+                if New then XenonSetTarget(New) end
+            end
+            local StandMorph = Char:FindFirstChild("StandMorph")
+            if not StandMorph then return end
+            if XenonCurrentTarget then
+                local EnemyRoot = XenonCurrentTarget:FindFirstChild("HumanoidRootPart")
+                local StandRoot = StandMorph:FindFirstChild("HumanoidRootPart") or StandMorph.PrimaryPart
+                if EnemyRoot and StandRoot then
+                    if not HRP:FindFirstChild("XenonHold") then
+                        local BV = Instance.new("BodyVelocity", HRP)
+                        BV.Name = "XenonHold"; BV.Velocity = Vector3.zero; BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    else HRP.XenonHold.Velocity = Vector3.zero end
+                    local StandPos = EnemyRoot.CFrame * CFrame.new(0, 0, XenonStandOffset)
+                    StandRoot.CFrame = CFrame.new(StandPos.Position, EnemyRoot.Position)
+                    local PlayerPos = EnemyRoot.Position + Vector3.new(0, -XenonDepth, 0)
+                    HRP.CFrame = CFrame.new(PlayerPos) * EnemyRoot.CFrame.Rotation
+                    if not Char:FindFirstChild("FocusCam") then local fc = Instance.new("ObjectValue", Char); fc.Name = "FocusCam" end
+                    Char.FocusCam.Value = EnemyRoot
+                    for _, part in pairs(Char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = false end end
+                else XenonSetTarget(nil) end
+            else
+                if HRP:FindFirstChild("XenonHold") then HRP.XenonHold:Destroy() end
+                if StandMorph.PrimaryPart then StandMorph.PrimaryPart.CFrame = HRP.CFrame end
+            end
+        end
+        local function XenonStopFarm()
+            for _, conn in pairs(XenonFarmConnections) do conn:Disconnect() end
+            XenonFarmConnections = {}
+            XenonSetTarget(nil)
+            local Char = localPlayer.Character
+            if Char then
+                if Char:FindFirstChild("HumanoidRootPart") and Char.HumanoidRootPart:FindFirstChild("XenonHold") then
+                    Char.HumanoidRootPart.XenonHold:Destroy()
+                end
+                if Char:FindFirstChild("FocusCam") then Char.FocusCam:Destroy() end
+                local Stand = Char:FindFirstChild("StandMorph")
+                if Stand and Stand.PrimaryPart then Stand.PrimaryPart.CFrame = Char.HumanoidRootPart.CFrame end
+                for _, part in pairs(Char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = true end end
+            end
+        end
+        local function XenonStartFarm()
+            for _, conn in pairs(XenonFarmConnections) do conn:Disconnect() end
+            XenonFarmConnections = {}
+            table.insert(XenonFarmConnections, RunService.RenderStepped:Connect(XenonUpdatePosition))
+            table.insert(XenonFarmConnections, RunService.Stepped:Connect(XenonUpdatePosition))
+            table.insert(XenonFarmConnections, RunService.Heartbeat:Connect(XenonUpdatePosition))
+            table.insert(XenonFarmConnections, RunService.RenderStepped:Connect(XenonUpdateAttack))
+        end
+
+
+        -- ==========================================
+        -- ИНТЕРФЕЙС (LUNA UI / IOS 26)
+        -- ==========================================
+        
+        local Window = Library:Init({ Name = "YBA AutoBlocker | IOS 26" })
+
+        -- Табы (Используем новые ключевые слова)
+        local CombatTab = Window:NewTab("sword")
+        local FarmTab = Window:NewTab("globe")
+        local AutoSellTab = Window:NewTab("cart")
+        local ItemFarmTab = Window:NewTab("box") -- Использует щит как заглушку
+        local MiscTab = Window:NewTab("zap")
+        local SettingsTab = Window:NewTab("settings")
+
+        -- // COMBAT TAB //
+        local CombatLeft = CombatTab:NewSection("Defense", "Left")
+        CombatLeft:AddToggle("Auto Block/Dodge", isAutoBlockActive, function(v) isAutoBlockActive = v end)
+        CombatLeft:AddToggle("Block M1s", isBlockM1sActive, function(v) isBlockM1sActive = v end)
+        CombatLeft:AddSlider("M1 Radius", 0, 50, M1_BLOCK_RADIUS, function(v) M1_BLOCK_RADIUS = v; M1_BLOCK_RADIUS_SQ = v*v end, 1)
+        CombatLeft:AddSlider("Block Radius", 0, 60, AUTO_BLOCK_RADIUS, function(v) AUTO_BLOCK_RADIUS = v; AUTO_BLOCK_RADIUS_SQ = v*v end, 1)
+
+        local CombatRight = CombatTab:NewSection("Offense", "Right")
+        CombatRight:AddToggle("Auto Barrage", isAutoBarrageActive, function(v) isAutoBarrageActive = v end)
+        CombatRight:AddToggle("Auto Break Block", isAutoBreakBlockActive, function(v) isAutoBreakBlockActive = v end)
+        CombatRight:AddToggle("TP Break", isTPBreakActive, function(v) isTPBreakActive = v end)
+        CombatRight:AddDropdown("Break Action", {"M2", "R", "Y", "G"}, "M2", function(opt) breakBlockMode = opt end)
+
+        -- // FARM TAB //
+        local FarmLeft = FarmTab:NewSection("NPC Farm", "Left")
+        FarmLeft:AddButton("Get Worthiness", function()
+            local char = localPlayer.Character
+            local rf = char and char:FindFirstChild("RemoteFunction")
+            if rf then
+                rf:InvokeServer("LearnSkill", { Skill = "Worthiness", SkillTreeType = "Character" })
+                showNotification("Skill", "Attempted Worthiness", nil, 2)
+            end
+        end)
+
+        local XenonNPCList = XenonGetNPCList()
+        if #XenonNPCList == 0 then XenonNPCList = {"No NPCs Found"} end
+        local NpcDrop = FarmLeft:AddDropdown("Select NPC", XenonNPCList, XenonNPCList[1], function(opt)
+            XenonNPCTargetName = opt
+            XenonSetTarget(nil)
+        end)
+        XenonNPCTargetName = XenonNPCList[1]
+        
+        FarmLeft:AddButton("Refresh NPCs", function() 
+            showNotification("Refresh", "NPC List Updated (Internal)", nil, 2)
+        end)
+
+        local NPCFarmTog = FarmLeft:AddToggle("Enable NPC Farm", false, function(v)
+            if v then
+                if XenonPlayerFarmActive then PlayerFarmToggle:Set(false) end
+                XenonNPCFarmActive = true
+                if XenonNPCTargetName == "No NPCs Found" or not XenonNPCTargetName then
+                    showNotification("Farm Error", "Select valid NPC", nil, 3)
+                    NPCFarmTog:Set(false)
+                    return
+                end
+                XenonStartFarm()
+                showNotification("NPC Farm", "Started", nil, 3)
+            else
+                XenonNPCFarmActive = false
+                if not XenonPlayerFarmActive then XenonStopFarm(); showNotification("NPC Farm", "Stopped", nil, 3) end
+            end
+        end)
+
+        local FarmRight = FarmTab:NewSection("Player/Quest", "Right")
+        local XenonPlayerList = XenonGetPlayerList()
+        if #XenonPlayerList == 0 then XenonPlayerList = {"No Players Found"} end
+        local PlrDrop = FarmRight:AddDropdown("Select Player", XenonPlayerList, XenonPlayerList[1], function(opt)
+            XenonPlayerTargetName = opt
+            XenonSetTarget(nil)
+        end)
+        XenonPlayerTargetName = XenonPlayerList[1]
+
+        local PlayerFarmTog = FarmRight:AddToggle("Enable Player Farm", false, function(v)
+            if v then
+                if XenonNPCFarmActive then NPCFarmTog:Set(false) end
+                XenonPlayerFarmActive = true
+                if XenonPlayerTargetName == "No Players Found" or not XenonPlayerTargetName then
+                    showNotification("Farm Error", "Select valid Player", nil, 3)
+                    PlayerFarmTog:Set(false)
+                    return
+                end
+                XenonStartFarm()
+                showNotification("Player Farm", "Started", nil, 3)
+            else
+                XenonPlayerFarmActive = false
+                if not XenonNPCFarmActive then XenonStopFarm(); showNotification("Player Farm", "Stopped", nil, 3) end
+            end
+        end)
+
+        local XenonQuestList = XenonGetQuestList()
+        if #XenonQuestList == 0 then XenonQuestList = {"No Quests Found"} end
+        FarmRight:AddDropdown("Select Quest", XenonQuestList, XenonQuestList[1], function(o) XenonSelectedQuest = o end)
+        XenonSelectedQuest = XenonQuestList[1]
+        FarmRight:AddToggle("Auto Accept Quest", false, function(v) XenonQuestActive = v end)
+
+        -- // AUTO SELL TAB //
+        local SellLeft = AutoSellTab:NewSection("Config", "Left")
+        SellLeft:AddMultiDropdown("Sell Items", sellableItems, {}, function(list)
+            selectedSellItems = list
+            showNotification("Auto Sell", "Items Updated", nil, 2)
+        end)
+        SellLeft:AddToggle("Enable Auto Sell", isAutoSellActive, function(v)
+            isAutoSellActive = v
+            if v then task.spawn(autoSellLoop) end
+        end)
+        
+        local SellRight = AutoSellTab:NewSection("Events", "Right")
+        SellRight:AddToggle("Auto Candy", isAutoCandyActive, function(v)
+            isAutoCandyActive = v
+            if v then task.spawn(autoCandyLoop) end
+        end)
+
+        -- // ITEM FARM TAB //
+        local ItemLeft = ItemFarmTab:NewSection("Main", "Left")
+        ItemLeft:AddToggle("Enable Item Farm", IF_Enabled, function(v)
+            IF_Enabled = v
+            if v then task.spawn(ItemFarmLoop) end
+        end)
+        ItemLeft:AddToggle("Buy Lucky Arrows", IF_BuyLucky, function(v) IF_BuyLucky = v end)
+        ItemLeft:AddToggle("Server Hop", IF_ServerHop, function(v) IF_ServerHop = v end)
+
+        local ItemRight = ItemFarmTab:NewSection("Filter", "Right")
+        ItemRight:AddMultiDropdown("Collect Items", ItemFarmCollectItemsList, {}, function(list)
+            IF_SelectedCollectItems = {}
+            for _, n in ipairs(list) do IF_SelectedCollectItems[n] = true end
+        end)
+
+        -- // MISC TAB //
+        local MiscLeft = MiscTab:NewSection("Character", "Left")
+        MiscLeft:AddToggle("Auto Summon Stand", isAutoSummonStandActive, function(v)
+            isAutoSummonStandActive = v
+            if v then task.spawn(autoSummonStandLoop) end
+        end)
+        MiscLeft:AddToggle("Auto Sprint", isAutoSprintActive, function(v)
+            isAutoSprintActive = v
+            if v then task.spawn(autoSprintLoop) end
+        end)
+
+        local MiscRight = MiscTab:NewSection("Other", "Right")
+        MiscRight:AddToggle("Arcade GodMode", isArcadeGodModeActive, function(v)
+            isArcadeGodModeActive = v
+            if v then task.spawn(arcadeGodModeLoop) end
+        end)
+
+        -- // SETTINGS TAB //
+        local SetLeft = SettingsTab:NewSection("Delays", "Left")
+        -- Используем малые шаги для тонкой настройки
+        SetLeft:AddSlider("PB Delay", 0, 1, SETTING_PB_DELAY_NORMAL, function(v) SETTING_PB_DELAY_NORMAL = v; refreshAnimStats() end, 0.01)
+        SetLeft:AddSlider("PB Hold", 0, 2, SETTING_PB_HOLD_NORMAL, function(v) SETTING_PB_HOLD_NORMAL = v; refreshAnimStats() end, 0.05)
+        SetLeft:AddSlider("M1 Hold", 0, 2, SETTING_M1_HOLD, function(v) SETTING_M1_HOLD = v; refreshAnimStats() end, 0.05)
+        SetLeft:AddSlider("Normal Block", 0, 2, SETTING_BLOCK_HOLD_NEW, function(v) SETTING_BLOCK_HOLD_NEW = v; refreshAnimStats() end, 0.05)
+
+        local SetRight = SettingsTab:NewSection("UI Config", "Right")
+        SetRight:AddDropdown("Theme", {"Midnight", "Ocean", "Crimson", "Amethyst", "Forest", "Sunset", "Cyberpunk", "Royal", "Void", "Toxic"}, "Ocean", function(t) Library:SetTheme(t) end)
+        
+        -- Слайдер масштаба
+        SetRight:AddSlider("Scale", 0.5, 2.0, 1.0, function(v) Library:SetScale(v) end, 0.1)
+        
+        SetRight:AddButton("Unload UI", function() Library:Unload() end)
+
+        -- Set Default Theme
+        Library:SetTheme("Ocean")
+        showNotification("Loaded", "YBA AutoBlocker IOS 26 Ready", nil, 5)
+
+    end)
+end
+
+--------------------------------------------------------------------
+-- ФУНКЦИИ СЕТИ (Authentication)
+--------------------------------------------------------------------
+
+local function HttpRequest(url)
+    local requestFunc = request or http_request or (http and http.request) or (syn and syn.request)
+    if requestFunc then return requestFunc({Url = url, Method = "GET"}) else return nil, "Executor unsupported" end
+end
+
+local function GetKeyLink(serviceId, hwid)
+    return "https://pandadevelopment.net/getkey?service=" .. tostring(serviceId) .. "&hwid=" .. tostring(hwid)
+end
+
+local function ValidateKey(key, serviceId, hwid)
+    local validationUrl = "https://pandadevelopment.net/v2_validation?key=" .. tostring(key) .. "&service=" .. tostring(serviceId) .. "&hwid=" .. tostring(hwid)
+    local response = HttpRequest(validationUrl)
+    if response and response.Body then
+        local success, jsonData = pcall(function() return HttpService:JSONDecode(response.Body) end)
+        if success and jsonData then
+            if jsonData["V2_Authentication"] == "success" then return true, "Authenticated"
+            else return false, jsonData["reason"] or "Invalid Key" end
+        else return false, "JSON Decode Error" end
+    else return false, "Server Connection Failed" end
+end
+
+--------------------------------------------------------------------
+-- GUI КЛЮЧЕВОЙ СИСТЕМЫ
+--------------------------------------------------------------------
+if CoreGui:FindFirstChild("YBAPremiumUI") then CoreGui.YBAPremiumUI:Destroy() end
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "YBAPremiumUI"
+ScreenGui.IgnoreGuiInset = true
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 420, 0, 240)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12) -- Slightly nicer look
+
+local InputFrame = Instance.new("Frame", MainFrame)
+InputFrame.Size = UDim2.new(0.85, 0, 0, 42)
+InputFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
+InputFrame.AnchorPoint = Vector2.new(0.5, 0)
+InputFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 8)
+
+local KeyBox = Instance.new("TextBox", InputFrame)
+KeyBox.Size = UDim2.new(1, -20, 1, 0)
+KeyBox.Position = UDim2.new(0, 10, 0, 0)
+KeyBox.BackgroundTransparency = 1
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+KeyBox.Font = Enum.Font.GothamBold
+KeyBox.TextSize = 14
+KeyBox.PlaceholderText = "Paste Key..."
+KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+
+local function CreateButton(text, pos, callback)
+    local Button = Instance.new("TextButton", MainFrame)
+    Button.Size = UDim2.new(0.4, 0, 0, 38)
+    Button.Position = pos
+    Button.Text = text
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 14
+    Button.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
+    Button.MouseButton1Click:Connect(callback)
+end
+
+CreateButton("GET KEY", UDim2.new(0.075, 0, 0.65, 0), function()
+    local link = GetKeyLink(SERVICE_ID, HWID)
+    if link then setclipboard(link) end
+end)
+
+CreateButton("CHECK KEY", UDim2.new(0.525, 0, 0.65, 0), function()
+    local key = KeyBox.Text
+    local isValid, message = ValidateKey(key, SERVICE_ID, HWID)
+    if isValid then
+        writefile(KEY_FILE, key)
+        ScreenGui:Destroy()
+        RunScript()
+    else
+        KeyBox.Text = "INVALID KEY"
+        task.wait(1)
+        KeyBox.Text = key
+    end
+end)
+
+if isfile(KEY_FILE) then
+    local savedKey = readfile(KEY_FILE)
+    if savedKey and #savedKey > 0 then
+        local isValid, _ = ValidateKey(savedKey, SERVICE_ID, HWID)
+        if isValid then RunScript(); ScreenGui:Destroy() else delfile(KEY_FILE) end
+    end
+end
