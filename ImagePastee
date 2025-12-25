@@ -1,1 +1,2 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Artem1093z/Zygisk-Il2CppDumper/refs/heads/master/imageK"))()
+
+loadstring(game:HttpGet("https://pandadevelopment.net/virtual/file/6cbf24c824178996"))()
